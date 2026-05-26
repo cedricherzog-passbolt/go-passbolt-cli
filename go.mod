@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	al.essio.dev/pkg/shellescape v1.6.0
+	github.com/ProtonMail/gopenpgp/v3 v3.4.1
 	github.com/google/cel-go v0.28.0
 	github.com/google/uuid v1.6.0
 	github.com/passbolt/go-passbolt v0.8.0-beta.2
@@ -11,6 +12,7 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
+	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/tobischo/gokeepasslib/v3 v3.6.2
 	golang.org/x/term v0.42.0
 )
@@ -24,7 +26,6 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.4.1 // indirect
-	github.com/ProtonMail/gopenpgp/v3 v3.4.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -80,7 +81,6 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/testcontainers/testcontainers-go v0.42.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/tobischo/argon2 v0.1.0 // indirect
