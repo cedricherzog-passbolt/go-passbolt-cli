@@ -23,8 +23,9 @@ func init() {
 		"Define a CEl expression as filter for any list commands. In the expression, all available columns of subcommand can be used (see -c/--column).\n"+
 			"See also CEl specifications under https://github.com/google/cel-spec.\n"+
 			"Examples:\n"+
-			"\t--filter '(Name == \"SomeName\" || matches(Name, \"RegExpr\")) && URI.startsWith(\"https://auth.\")'\n"+
-			"\t--filter 'Username == \"User\" && CreatedTimestamp > timestamp(\"2022-06-10T00:00:00.000-00:00\")'")
+			"\t--filter '(name == \"SomeName\" || matches(name, \"RegExpr\")) && uri.startsWith(\"https://auth.\")'\n"+
+			"\t--filter 'username == \"User\" && created_timestamp > timestamp(\"2022-06-10T00:00:00.000-00:00\")'\n"+
+			"Legacy PascalCase variable names (Name, Username, CreatedTimestamp, ...) remain accepted for backwards compatibility.")
 	listCmd.AddCommand(resource.ResourceListCmd)
 	listCmd.AddCommand(folder.FolderListCmd)
 	listCmd.AddCommand(group.GroupListCmd)

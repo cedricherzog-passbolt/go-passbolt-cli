@@ -4,17 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
-	"al.essio.dev/pkg/shellescape"
 	"github.com/passbolt/go-passbolt-cli/util"
 	"github.com/passbolt/go-passbolt/api"
 	"github.com/spf13/cobra"
 
 	"github.com/pterm/pterm"
 )
-
-var defaultTableColumns = []string{"ID", "FolderParentID", "Name"}
 
 // FolderListCmd Lists a Passbolt Folder
 var FolderListCmd = &cobra.Command{
@@ -30,7 +26,7 @@ func init() {
 	flags.StringP("search", "s", "", "Folders that have this in the Name")
 	flags.StringArrayP("folder", "f", []string{}, "Folders that are in this Folder")
 	flags.StringArrayP("group", "g", []string{}, "Folders that are shared with group")
-	flags.StringArrayP("column", "c", defaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: ID, FolderParentID, Name, CreatedTimestamp, ModifiedTimestamp")
+	flags.StringArrayP("column", "c", folderDefaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(folderColumnResolver.Canonical(), ", ")+"\nLegacy PascalCase column names (ID, FolderParentID, ...) remain accepted for backwards compatibility.")
 }
 
 type folderListConfig struct {
@@ -101,8 +97,6 @@ func printJSONFolders(folders []api.Folder, isColumnsChanged bool, columns []str
 			}
 
 			for _, col := range columns {
-				col = strings.ToLower(col)
-
 				if val, ok := folderMap[col]; ok {
 					filteredMap[i][col] = val
 				}
@@ -131,21 +125,14 @@ func printTableFolders(columns []string, folders []api.Folder) error {
 
 	for _, folder := range folders {
 		entry := make([]string, len(columns))
-		for i := range columns {
-			switch strings.ToLower(columns[i]) {
-			case "id":
-				entry[i] = folder.ID
-			case "folderparentid":
-				entry[i] = folder.FolderParentID
-			case "name":
-				entry[i] = shellescape.StripUnsafe(folder.Name)
-			case "createdtimestamp":
-				entry[i] = folder.Created.Format(time.RFC3339)
-			case "modifiedtimestamp":
-				entry[i] = folder.Modified.Format(time.RFC3339)
-			default:
-				return fmt.Errorf("unknown Column: %v", columns[i])
+		for i, col := range columns {
+			// Input is normalized by parseFolderListFlags; a miss here is a
+			// defensive guard against a future caller that skips that step.
+			spec, ok := folderColumnsByName[col]
+			if !ok {
+				return fmt.Errorf("unknown column: %q", col)
 			}
+			entry[i] = spec.tableValue(folder)
 		}
 		data = append(data, entry)
 	}
@@ -169,6 +156,10 @@ func parseFolderListFlags(cmd *cobra.Command) (*folderListConfig, error) {
 	}
 	if len(columns) == 0 {
 		return nil, fmt.Errorf("you need to specify at least one column to return")
+	}
+	columns, err = folderColumnResolver.NormalizeAll(columns)
+	if err != nil {
+		return nil, err
 	}
 	jsonOutput, err := cmd.Flags().GetBool("json")
 	if err != nil {

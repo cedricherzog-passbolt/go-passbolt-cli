@@ -4,17 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
-	"al.essio.dev/pkg/shellescape"
 	"github.com/passbolt/go-passbolt-cli/util"
 	"github.com/passbolt/go-passbolt/api"
 	"github.com/spf13/cobra"
 
 	"github.com/pterm/pterm"
 )
-
-var defaultTableColumns = []string{"ID", "Username", "FirstName", "LastName", "Role"}
 
 // UserListCmd Lists a Passbolt User
 var UserListCmd = &cobra.Command{
@@ -31,7 +27,7 @@ func init() {
 	flags.StringArrayP("resource", "r", []string{}, "Users that have access to resources")
 	flags.StringP("search", "s", "", "Search for Users")
 	flags.BoolP("admin", "a", false, "Only show Admins")
-	flags.StringArrayP("column", "c", defaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: ID, Username, FirstName, LastName, Role, CreatedTimestamp, ModifiedTimestamp")
+	flags.StringArrayP("column", "c", userDefaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(userColumnResolver.Canonical(), ", ")+"\nLegacy PascalCase column names (ID, FirstName, ...) remain accepted for backwards compatibility.")
 }
 
 type userListConfig struct {
@@ -102,25 +98,23 @@ func printJSONUsers(users []api.User, isColumnsChanged bool, columns []string) e
 		for i := range outputUsers {
 			filteredMap[i] = make(map[string]interface{})
 			data, _ := json.Marshal(outputUsers[i])
-			var resourceMap map[string]interface{}
-			if err := json.Unmarshal(data, &resourceMap); err != nil {
+			var userMap map[string]interface{}
+			if err := json.Unmarshal(data, &userMap); err != nil {
 				return fmt.Errorf("unmarshaling user: %w", err)
 			}
 
 			for _, col := range columns {
-				col = strings.ToLower(col)
-
-				if val, ok := resourceMap[col]; ok {
+				if val, ok := userMap[col]; ok {
 					filteredMap[i][col] = val
 				}
 			}
 		}
 
-		jsonResources, err := json.MarshalIndent(filteredMap, "", "  ")
+		jsonUsers, err := json.MarshalIndent(filteredMap, "", "  ")
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(jsonResources))
+		fmt.Println(string(jsonUsers))
 		return nil
 	}
 
@@ -138,25 +132,14 @@ func printTableUsers(columns []string, users []api.User) error {
 
 	for _, user := range users {
 		entry := make([]string, len(columns))
-		for i := range columns {
-			switch strings.ToLower(columns[i]) {
-			case "id":
-				entry[i] = user.ID
-			case "username":
-				entry[i] = shellescape.StripUnsafe(user.Username)
-			case "firstname":
-				entry[i] = shellescape.StripUnsafe(user.Profile.FirstName)
-			case "lastname":
-				entry[i] = shellescape.StripUnsafe(user.Profile.LastName)
-			case "role":
-				entry[i] = shellescape.StripUnsafe(user.Role.Name)
-			case "createdtimestamp":
-				entry[i] = user.Created.Format(time.RFC3339)
-			case "modifiedtimestamp":
-				entry[i] = user.Modified.Format(time.RFC3339)
-			default:
-				return fmt.Errorf("unknown Column: %v", columns[i])
+		for i, col := range columns {
+			// Input is normalized by parseUserListFlags; a miss here is a
+			// defensive guard against a future caller that skips that step.
+			spec, ok := userColumnsByName[col]
+			if !ok {
+				return fmt.Errorf("unknown column: %q", col)
 			}
+			entry[i] = spec.tableValue(user)
 		}
 		data = append(data, entry)
 	}
@@ -187,7 +170,11 @@ func parseUserListFlags(cmd *cobra.Command) (*userListConfig, error) {
 		return nil, err
 	}
 	if len(columns) == 0 {
-		return nil, fmt.Errorf("you need to specify atleast one column to return")
+		return nil, fmt.Errorf("you need to specify at least one column to return")
+	}
+	columns, err = userColumnResolver.NormalizeAll(columns)
+	if err != nil {
+		return nil, err
 	}
 	jsonOutput, err := cmd.Flags().GetBool("json")
 	if err != nil {
