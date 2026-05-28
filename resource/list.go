@@ -294,6 +294,12 @@ func printJSONResources(
 			Description:       &desc,
 			CreatedTimestamp:  &d.resource.Created.Time,
 			ModifiedTimestamp: &d.resource.Modified.Time,
+			Deleted:           d.resource.Deleted,
+			Expired:           d.resource.Expired != nil,
+			ResourceTypeID:    &d.resource.ResourceTypeID,
+		}
+		if d.resource.Expired != nil {
+			output.ExpiredAt = &d.resource.Expired.Time
 		}
 		if len(d.metadataFields) > 0 {
 			output.Metadata = d.metadataFields

@@ -2,6 +2,7 @@ package resource
 
 import (
 	"encoding/json"
+	"strconv"
 	"time"
 
 	"al.essio.dev/pkg/shellescape"
@@ -134,6 +135,52 @@ var resourceColumns = []columnSpec{
 			return d.secretFields
 		},
 		tableValue: func(d decryptedResource) string { return marshalMapForTable(d.secretFields) },
+	},
+	{
+		name:         "deleted",
+		aliases:      []string{"Deleted"},
+		defaultTable: false,
+		celType:      cel.BoolType,
+		celValue:     func(d decryptedResource) any { return d.resource.Deleted },
+		tableValue:   func(d decryptedResource) string { return strconv.FormatBool(d.resource.Deleted) },
+	},
+	{
+		// Derived bool: true iff Resource.Expired is set. Pairs with the
+		// expired_at column below which exposes the actual timestamp.
+		name:         "expired",
+		aliases:      []string{"Expired"},
+		defaultTable: false,
+		celType:      cel.BoolType,
+		celValue:     func(d decryptedResource) any { return d.resource.Expired != nil },
+		tableValue:   func(d decryptedResource) string { return strconv.FormatBool(d.resource.Expired != nil) },
+	},
+	{
+		// Nullable timestamp: zero time when not expired. CEL users compare
+		// against timestamp() literals; table renders RFC3339 or empty.
+		name:         "expired_at",
+		aliases:      []string{"ExpiredAt", "expiredat"},
+		defaultTable: false,
+		celType:      cel.TimestampType,
+		celValue: func(d decryptedResource) any {
+			if d.resource.Expired == nil {
+				return time.Time{}
+			}
+			return d.resource.Expired.Time
+		},
+		tableValue: func(d decryptedResource) string {
+			if d.resource.Expired == nil {
+				return ""
+			}
+			return d.resource.Expired.Format(time.RFC3339)
+		},
+	},
+	{
+		name:         "resource_type_id",
+		aliases:      []string{"ResourceTypeID", "resourcetypeid"},
+		defaultTable: false,
+		celType:      cel.StringType,
+		celValue:     func(d decryptedResource) any { return d.resource.ResourceTypeID },
+		tableValue:   func(d decryptedResource) string { return d.resource.ResourceTypeID },
 	},
 }
 

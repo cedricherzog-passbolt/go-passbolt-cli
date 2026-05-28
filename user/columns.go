@@ -1,6 +1,7 @@
 package user
 
 import (
+	"strconv"
 	"time"
 
 	"al.essio.dev/pkg/shellescape"
@@ -74,6 +75,34 @@ var userColumns = []columnSpec{
 		celType:      cel.TimestampType,
 		celValue:     func(u api.User) any { return u.Modified.Time },
 		tableValue:   func(u api.User) string { return u.Modified.Format(time.RFC3339) },
+	},
+	{
+		name:         "active",
+		aliases:      []string{"Active"},
+		defaultTable: false,
+		celType:      cel.BoolType,
+		celValue:     func(u api.User) any { return u.Active },
+		tableValue:   func(u api.User) string { return strconv.FormatBool(u.Active) },
+	},
+	{
+		name:         "deleted",
+		aliases:      []string{"Deleted"},
+		defaultTable: false,
+		celType:      cel.BoolType,
+		celValue:     func(u api.User) any { return u.Deleted },
+		tableValue:   func(u api.User) string { return strconv.FormatBool(u.Deleted) },
+	},
+	{
+		// Derived from the nullable *Time field: User.Disabled non-nil ⇒
+		// the user is currently disabled. Bool semantics match how users
+		// reason about the flag ("is this user disabled?"); an audit-friendly
+		// disabled_at timestamp can be added later if needed.
+		name:         "disabled",
+		aliases:      []string{"Disabled"},
+		defaultTable: false,
+		celType:      cel.BoolType,
+		celValue:     func(u api.User) any { return u.Disabled != nil },
+		tableValue:   func(u api.User) string { return strconv.FormatBool(u.Disabled != nil) },
 	},
 }
 

@@ -1,6 +1,7 @@
 package folder
 
 import (
+	"strconv"
 	"time"
 
 	"al.essio.dev/pkg/shellescape"
@@ -58,6 +59,14 @@ var folderColumns = []columnSpec{
 		celType:      cel.TimestampType,
 		celValue:     func(f api.Folder) any { return f.Modified.Time },
 		tableValue:   func(f api.Folder) string { return f.Modified.Format(time.RFC3339) },
+	},
+	{
+		name:         "personal",
+		aliases:      []string{"Personal"},
+		defaultTable: false,
+		celType:      cel.BoolType,
+		celValue:     func(f api.Folder) any { return f.Personal },
+		tableValue:   func(f api.Folder) string { return strconv.FormatBool(f.Personal) },
 	},
 }
 

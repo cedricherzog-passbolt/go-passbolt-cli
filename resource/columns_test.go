@@ -33,6 +33,16 @@ func TestResourceColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 		{"Metadata", "metadata"},
 		{"secret", "secret"},
 		{"Secret", "secret"},
+		{"deleted", "deleted"},
+		{"Deleted", "deleted"},
+		{"expired", "expired"},
+		{"Expired", "expired"},
+		{"expired_at", "expired_at"},
+		{"ExpiredAt", "expired_at"},
+		{"expiredat", "expired_at"},
+		{"resource_type_id", "resource_type_id"},
+		{"ResourceTypeID", "resource_type_id"},
+		{"resourcetypeid", "resource_type_id"},
 	}
 	for _, c := range cases {
 		got, err := resourceColumnResolver.Normalize(c.input)

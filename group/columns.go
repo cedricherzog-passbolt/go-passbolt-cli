@@ -1,6 +1,7 @@
 package group
 
 import (
+	"strconv"
 	"time"
 
 	"al.essio.dev/pkg/shellescape"
@@ -54,6 +55,22 @@ var groupColumns = []columnSpec{
 		celType:      cel.TimestampType,
 		celValue:     func(g api.Group) any { return g.Modified.Time },
 		tableValue:   func(g api.Group) string { return g.Modified.Format(time.RFC3339) },
+	},
+	{
+		name:         "deleted",
+		aliases:      []string{"Deleted"},
+		defaultTable: false,
+		celType:      cel.BoolType,
+		celValue:     func(g api.Group) any { return g.Deleted },
+		tableValue:   func(g api.Group) string { return strconv.FormatBool(g.Deleted) },
+	},
+	{
+		name:         "user_count",
+		aliases:      []string{"UserCount", "usercount"},
+		defaultTable: false,
+		celType:      cel.IntType,
+		celValue:     func(g api.Group) any { return int64(g.UserCount) },
+		tableValue:   func(g api.Group) string { return strconv.Itoa(g.UserCount) },
 	},
 }
 

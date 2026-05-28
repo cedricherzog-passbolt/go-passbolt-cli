@@ -14,4 +14,10 @@ type ResourceJSONOutput struct {
 	ModifiedTimestamp *time.Time     `json:"modified_timestamp,omitempty"`
 	Metadata          map[string]any `json:"metadata,omitempty"`
 	Secret            map[string]any `json:"secret,omitempty"`
+	// Non-pointer bool without omitempty so `false` reaches output.
+	Deleted bool `json:"deleted"`
+	Expired bool `json:"expired"`
+	// Nullable timestamp: omitted when Resource.Expired is nil.
+	ExpiredAt      *time.Time `json:"expired_at,omitempty"`
+	ResourceTypeID *string    `json:"resource_type_id,omitempty"`
 }
