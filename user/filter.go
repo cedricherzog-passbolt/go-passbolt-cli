@@ -4,21 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/cel-go/cel"
 	"github.com/passbolt/go-passbolt-cli/util"
 	"github.com/passbolt/go-passbolt/api"
 )
-
-// Environments for CEl
-var celEnvOptions = []cel.EnvOption{
-	cel.Variable("ID", cel.StringType),
-	cel.Variable("Username", cel.StringType),
-	cel.Variable("FirstName", cel.StringType),
-	cel.Variable("LastName", cel.StringType),
-	cel.Variable("Role", cel.StringType),
-	cel.Variable("CreatedTimestamp", cel.TimestampType),
-	cel.Variable("ModifiedTimestamp", cel.TimestampType),
-}
 
 // Filters the slice users by invoke CEL program for each user
 func filterUsers(users *[]api.User, celCmd string, ctx context.Context) ([]api.User, error) {
@@ -26,23 +14,14 @@ func filterUsers(users *[]api.User, celCmd string, ctx context.Context) ([]api.U
 		return *users, nil
 	}
 
-	program, err := util.InitCELProgram(celCmd, celEnvOptions...)
+	program, err := util.InitCELProgram(celCmd, userCelEnvOptions...)
 	if err != nil {
 		return nil, err
 	}
 
 	filteredUsers := []api.User{}
 	for _, user := range *users {
-		val, _, err := (*program).ContextEval(ctx, map[string]any{
-			"ID":                user.ID,
-			"Username":          user.Username,
-			"FirstName":         user.Profile.FirstName,
-			"LastName":          user.Profile.LastName,
-			"Role":              user.Role.Name,
-			"CreatedTimestamp":  user.Created.Time,
-			"ModifiedTimestamp": user.Modified.Time,
-		})
-
+		val, _, err := (*program).ContextEval(ctx, userCelEvalMap(user))
 		if err != nil {
 			return nil, err
 		}
