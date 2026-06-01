@@ -59,7 +59,7 @@ jobs:
           version: latest
           args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Verify Build
         run: dist/go-passbolt-cli_linux_amd64_v1/passbolt -v
