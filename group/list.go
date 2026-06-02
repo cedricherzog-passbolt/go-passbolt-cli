@@ -81,6 +81,8 @@ func printJSONGroups(groups []api.Group, isColumnsChanged bool, columns []string
 			Name:              &groups[i].Name,
 			CreatedTimestamp:  &groups[i].Created.Time,
 			ModifiedTimestamp: &groups[i].Modified.Time,
+			Deleted:           groups[i].Deleted,
+			UserCount:         groups[i].UserCount,
 		}
 	}
 

@@ -8,6 +8,10 @@ type GroupJSONOutput struct {
 	Users             []GroupUserMembershipJSONOutput `json:"users,omitempty"`
 	CreatedTimestamp  *time.Time                      `json:"created_timestamp,omitempty"`
 	ModifiedTimestamp *time.Time                      `json:"modified_timestamp,omitempty"`
+	// Non-pointer scalars without omitempty so `false` / `0` reach output and
+	// remain filterable via --filter.
+	Deleted   bool `json:"deleted"`
+	UserCount int  `json:"user_count"`
 }
 
 type GroupUserMembershipJSONOutput struct {

@@ -90,6 +90,9 @@ func printJSONUsers(users []api.User, isColumnsChanged bool, columns []string) e
 			Role:              &users[i].Role.Name,
 			CreatedTimestamp:  &users[i].Created.Time,
 			ModifiedTimestamp: &users[i].Modified.Time,
+			Active:            users[i].Active,
+			Deleted:           users[i].Deleted,
+			Disabled:          users[i].Disabled != nil,
 		}
 	}
 

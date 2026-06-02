@@ -83,6 +83,7 @@ func printJSONFolders(folders []api.Folder, isColumnsChanged bool, columns []str
 			Name:              &folders[i].Name,
 			CreatedTimestamp:  &folders[i].Created.Time,
 			ModifiedTimestamp: &folders[i].Modified.Time,
+			Personal:          folders[i].Personal,
 		}
 	}
 

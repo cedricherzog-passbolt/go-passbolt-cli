@@ -28,6 +28,12 @@ func TestUserColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 		{"createdtimestamp", "created_timestamp"},
 		{"modified_timestamp", "modified_timestamp"},
 		{"ModifiedTimestamp", "modified_timestamp"},
+		{"active", "active"},
+		{"Active", "active"},
+		{"deleted", "deleted"},
+		{"Deleted", "deleted"},
+		{"disabled", "disabled"},
+		{"Disabled", "disabled"},
 	}
 	for _, c := range cases {
 		got, err := userColumnResolver.Normalize(c.input)

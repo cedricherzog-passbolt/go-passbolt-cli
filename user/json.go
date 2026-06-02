@@ -10,4 +10,10 @@ type UserJSONOutput struct {
 	Role              *string    `json:"role,omitempty"`
 	CreatedTimestamp  *time.Time `json:"created_timestamp,omitempty"`
 	ModifiedTimestamp *time.Time `json:"modified_timestamp,omitempty"`
+	// Lifecycle flags use non-pointer bool without omitempty so that `false`
+	// values reach JSON output and remain distinguishable from "absent" when
+	// users do --filter 'active == false'.
+	Active   bool `json:"active"`
+	Deleted  bool `json:"deleted"`
+	Disabled bool `json:"disabled"`
 }

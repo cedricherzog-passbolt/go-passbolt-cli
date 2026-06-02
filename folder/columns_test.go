@@ -18,6 +18,8 @@ func TestFolderColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 		{"CreatedTimestamp", "created_timestamp"},
 		{"modified_timestamp", "modified_timestamp"},
 		{"ModifiedTimestamp", "modified_timestamp"},
+		{"personal", "personal"},
+		{"Personal", "personal"},
 	}
 	for _, c := range cases {
 		got, err := folderColumnResolver.Normalize(c.input)

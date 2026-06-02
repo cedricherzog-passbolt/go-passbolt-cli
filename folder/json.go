@@ -8,4 +8,7 @@ type FolderJSONOutput struct {
 	Name              *string    `json:"name,omitempty"`
 	CreatedTimestamp  *time.Time `json:"created_timestamp,omitempty"`
 	ModifiedTimestamp *time.Time `json:"modified_timestamp,omitempty"`
+	// Non-pointer bool without omitempty so `false` reaches output and is
+	// filterable via `--filter 'personal == false'`.
+	Personal bool `json:"personal"`
 }

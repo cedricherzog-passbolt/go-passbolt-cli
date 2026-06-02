@@ -16,6 +16,11 @@ func TestGroupColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 		{"createdtimestamp", "created_timestamp"},
 		{"modified_timestamp", "modified_timestamp"},
 		{"ModifiedTimestamp", "modified_timestamp"},
+		{"deleted", "deleted"},
+		{"Deleted", "deleted"},
+		{"user_count", "user_count"},
+		{"UserCount", "user_count"},
+		{"usercount", "user_count"},
 	}
 	for _, c := range cases {
 		got, err := groupColumnResolver.Normalize(c.input)
