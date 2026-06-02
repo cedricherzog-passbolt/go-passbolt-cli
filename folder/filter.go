@@ -4,19 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/cel-go/cel"
 	"github.com/passbolt/go-passbolt-cli/util"
 	"github.com/passbolt/go-passbolt/api"
 )
-
-// Environments for CEl
-var celEnvOptions = []cel.EnvOption{
-	cel.Variable("ID", cel.StringType),
-	cel.Variable("FolderParentID", cel.StringType),
-	cel.Variable("Name", cel.StringType),
-	cel.Variable("CreatedTimestamp", cel.TimestampType),
-	cel.Variable("ModifiedTimestamp", cel.TimestampType),
-}
 
 // Filters the slice folders by invoke CEL program for each folder
 func filterFolders(folders *[]api.Folder, celCmd string, ctx context.Context) ([]api.Folder, error) {
@@ -24,21 +14,14 @@ func filterFolders(folders *[]api.Folder, celCmd string, ctx context.Context) ([
 		return *folders, nil
 	}
 
-	program, err := util.InitCELProgram(celCmd, celEnvOptions...)
+	program, err := util.InitCELProgram(celCmd, folderCelEnvOptions...)
 	if err != nil {
 		return nil, err
 	}
 
 	filteredFolders := []api.Folder{}
 	for _, folder := range *folders {
-		val, _, err := (*program).ContextEval(ctx, map[string]any{
-			"ID":                folder.ID,
-			"FolderParentID":    folder.FolderParentID,
-			"Name":              folder.Name,
-			"CreatedTimestamp":  folder.Created.Time,
-			"ModifiedTimestamp": folder.Modified.Time,
-		})
-
+		val, _, err := (*program).ContextEval(ctx, folderCelEvalMap(folder))
 		if err != nil {
 			return nil, err
 		}

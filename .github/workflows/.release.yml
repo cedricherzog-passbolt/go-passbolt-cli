@@ -45,12 +45,12 @@ jobs:
       - name: Generate Man and Completions
         run: |
           mkdir completion
-          go run *.go completion bash > completion/bash
-          go run *.go completion zsh > completion/zsh
-          go run *.go completion fish > completion/fish
-          go run *.go completion powershell > completion/powershell
+          go run . completion bash > completion/bash
+          go run . completion zsh > completion/zsh
+          go run . completion fish > completion/fish
+          go run . completion powershell > completion/powershell
           mkdir man
-          go run *.go gendoc --type man
+          go run . gendoc --type man
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@5742e2a039330cbb23ebf35f046f814d4c6ff811 # v5
@@ -59,7 +59,7 @@ jobs:
           version: latest
           args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Verify Build
         run: dist/go-passbolt-cli_linux_amd64_v1/passbolt -v

@@ -1,6 +1,9 @@
+//go:build integration
+
 package main_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/passbolt/go-passbolt-cli/cmd"
+	"github.com/passbolt/go-passbolt-cli/internal/testenv"
 	"github.com/rogpeppe/go-internal/testscript"
 )
 
@@ -34,52 +38,54 @@ func TestMain(m *testing.M) {
 	})
 }
 
-// TestCLI runs every .txtar under testdata/scripts as an independent UAT
-// scenario against a live Passbolt instance. Skips cleanly when the test
-// environment isn't configured.
+// TestCLI boots an ephemeral Passbolt via testcontainers, registers ada and
+// admin users, materialises CLI TOML configs for each, and runs every .txtar
+// scenario under testdata/scripts against the live server. Requires Docker.
 func TestCLI(t *testing.T) {
-	if os.Getenv("PASSBOLT_TEST_URL") == "" {
-		t.Skip("PASSBOLT_TEST_URL not set, skipping CLI integration tests")
-	}
+	ctx := t.Context()
 
-	cfgPath := os.Getenv("PASSBOLT_TEST_CLI_CONFIG")
-	if cfgPath == "" {
-		cfgPath = filepath.Join(os.Getenv("HOME"), ".config/go-passbolt-cli-ada/go-passbolt-cli.toml")
-	}
-	cfgData, err := os.ReadFile(cfgPath)
+	pb, err := testenv.Start(ctx)
 	if err != nil {
-		t.Skipf("CLI config %s not readable: %v", cfgPath, err)
+		t.Fatalf("start passbolt testenv: %v", err)
+	}
+	t.Cleanup(func() { _ = pb.Close(context.Background()) })
+
+	// Email/password convention mirrors the existing Passbolt seed-data
+	// fixtures (password == email) so test scripts that hard-code seeded
+	// emails like "ada@passbolt.com" line up. adele is created so scripts
+	// that share resources/folders with a third user (28, 31) find her.
+	admin, err := pb.CreateUser(ctx, "admin@passbolt.com", "Admin", "Tester", "admin", "admin@passbolt.com")
+	if err != nil {
+		t.Fatalf("create admin user: %v", err)
+	}
+	if err := pb.EnableV5Resources(ctx, admin); err != nil {
+		t.Fatalf("enable v5: %v", err)
+	}
+	ada, err := pb.CreateUser(ctx, "ada@passbolt.com", "Ada", "Lovelace", "user", "ada@passbolt.com")
+	if err != nil {
+		t.Fatalf("create ada user: %v", err)
+	}
+	if _, err := pb.CreateUser(ctx, "adele@passbolt.com", "Adele", "Goldberg", "user", "adele@passbolt.com"); err != nil {
+		t.Fatalf("create adele user: %v", err)
 	}
 
-	// Admin config is optional. Scripts that don't use it (most) skip the
-	// `pba` Cmd entirely; scripts that do (group create) skip themselves
-	// when this isn't available.
-	adminPath := os.Getenv("PASSBOLT_TEST_CLI_ADMIN_CONFIG")
-	if adminPath == "" {
-		adminPath = filepath.Join(os.Getenv("HOME"), ".config/go-passbolt-cli-admin/go-passbolt-cli.toml")
-	}
-	adminData, _ := os.ReadFile(adminPath) // missing → empty, scripts gate via [env:HAS_ADMIN]
-	if len(adminData) > 0 {
-		// Process-level marker the Condition handler reads. The per-script
-		// $CONFIG_ADMIN path is set in Setup; this just says "admin exists".
-		t.Setenv("HAS_ADMIN", "1")
-	}
+	// Marker for scripts gated on admin availability via [env:HAS_ADMIN].
+	t.Setenv("HAS_ADMIN", "1")
 
 	testscript.Run(t, testscript.Params{
-		Dir: "testdata/scripts",
+		Dir: "internal/testdata",
 		Setup: func(env *testscript.Env) error {
-			target := filepath.Join(env.WorkDir, "ada.toml")
-			if err := os.WriteFile(target, cfgData, 0600); err != nil {
+			adaCfg := filepath.Join(env.WorkDir, "ada.toml")
+			if err := os.WriteFile(adaCfg, []byte(tomlConfig(pb.BaseURL, ada)), 0600); err != nil {
 				return err
 			}
-			env.Setenv("CONFIG", target)
-			if len(adminData) > 0 {
-				adminTarget := filepath.Join(env.WorkDir, "admin.toml")
-				if err := os.WriteFile(adminTarget, adminData, 0600); err != nil {
-					return err
-				}
-				env.Setenv("CONFIG_ADMIN", adminTarget)
+			env.Setenv("CONFIG", adaCfg)
+
+			adminCfg := filepath.Join(env.WorkDir, "admin.toml")
+			if err := os.WriteFile(adminCfg, []byte(tomlConfig(pb.BaseURL, admin)), 0600); err != nil {
+				return err
 			}
+			env.Setenv("CONFIG_ADMIN", adminCfg)
 			return nil
 		},
 		Cmds: map[string]func(ts *testscript.TestScript, neg bool, args []string){
@@ -89,9 +95,6 @@ func TestCLI(t *testing.T) {
 			"uuid":       cmdUUID,
 			"defer":      cmdDefer,
 		},
-		// `[env:NAME]` is true when the named env var is set and non-empty
-		// in the test process. Used to gate scripts that depend on
-		// optional configuration (admin config for group ops).
 		Condition: func(cond string) (bool, error) {
 			if name, ok := strings.CutPrefix(cond, "env:"); ok {
 				return os.Getenv(name) != "", nil
@@ -99,6 +102,18 @@ func TestCLI(t *testing.T) {
 			return false, fmt.Errorf("unknown condition %q", cond)
 		},
 	})
+}
+
+// tomlConfig renders a CLI TOML config for the given credentials. The PGP
+// armored private key is a multi-line string, so we use TOML triple-quoted
+// literals; the password is short and safe for a bare key=value line.
+func tomlConfig(serverAddress string, c testenv.Credentials) string {
+	return fmt.Sprintf(`serverAddress = %q
+userPassword = %q
+userPrivateKey = '''
+%s
+'''
+`, serverAddress, c.Password, strings.TrimSpace(c.PrivateKey))
 }
 
 // jsoneq <file> <path> <expected>

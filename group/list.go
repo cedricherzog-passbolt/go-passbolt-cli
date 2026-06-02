@@ -4,17 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
-	"al.essio.dev/pkg/shellescape"
 	"github.com/passbolt/go-passbolt-cli/util"
 	"github.com/passbolt/go-passbolt/api"
 	"github.com/spf13/cobra"
 
 	"github.com/pterm/pterm"
 )
-
-var defaultTableColumns = []string{"ID", "Name"}
 
 // GroupListCmd Lists a Passbolt Group
 var GroupListCmd = &cobra.Command{
@@ -29,7 +25,7 @@ func init() {
 	flags := GroupListCmd.Flags()
 	flags.StringArrayP("user", "u", []string{}, "Groups that are shared with group")
 	flags.StringArrayP("manager", "m", []string{}, "Groups that are in folder")
-	flags.StringArrayP("column", "c", defaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: ID, Name, CreatedTimestamp, ModifiedTimestamp")
+	flags.StringArrayP("column", "c", groupDefaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(groupColumnResolver.Canonical(), ", ")+"\nLegacy PascalCase column names (ID, Name, CreatedTimestamp, ...) remain accepted for backwards compatibility.")
 }
 
 type groupListConfig struct {
@@ -85,6 +81,8 @@ func printJSONGroups(groups []api.Group, isColumnsChanged bool, columns []string
 			Name:              &groups[i].Name,
 			CreatedTimestamp:  &groups[i].Created.Time,
 			ModifiedTimestamp: &groups[i].Modified.Time,
+			Deleted:           groups[i].Deleted,
+			UserCount:         groups[i].UserCount,
 		}
 	}
 
@@ -99,8 +97,6 @@ func printJSONGroups(groups []api.Group, isColumnsChanged bool, columns []string
 			}
 
 			for _, col := range columns {
-				col = strings.ToLower(col)
-
 				if val, ok := groupMap[col]; ok {
 					filteredMap[i][col] = val
 				}
@@ -129,19 +125,14 @@ func printTableGroups(columns []string, groups []api.Group) error {
 
 	for _, group := range groups {
 		entry := make([]string, len(columns))
-		for i := range columns {
-			switch strings.ToLower(columns[i]) {
-			case "id":
-				entry[i] = group.ID
-			case "name":
-				entry[i] = shellescape.StripUnsafe(group.Name)
-			case "createdtimestamp":
-				entry[i] = group.Created.Format(time.RFC3339)
-			case "modifiedtimestamp":
-				entry[i] = group.Modified.Format(time.RFC3339)
-			default:
-				return fmt.Errorf("unknown Column: %v", columns[i])
+		for i, col := range columns {
+			// Input is normalized by parseGroupListFlags; a miss here is a
+			// defensive guard against a future caller that skips that step.
+			spec, ok := groupColumnsByName[col]
+			if !ok {
+				return fmt.Errorf("unknown column: %q", col)
 			}
+			entry[i] = spec.tableValue(group)
 		}
 		data = append(data, entry)
 	}
@@ -165,6 +156,10 @@ func parseGroupListFlags(cmd *cobra.Command) (*groupListConfig, error) {
 	}
 	if len(columns) == 0 {
 		return nil, fmt.Errorf("you need to specify at least one column to return")
+	}
+	columns, err = groupColumnResolver.NormalizeAll(columns)
+	if err != nil {
+		return nil, err
 	}
 	jsonOutput, err := cmd.Flags().GetBool("json")
 	if err != nil {

@@ -8,9 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
-	"al.essio.dev/pkg/shellescape"
 	"github.com/passbolt/go-passbolt-cli/util"
 	"github.com/passbolt/go-passbolt/api"
 	"github.com/passbolt/go-passbolt/helper"
@@ -33,8 +31,6 @@ type decryptedResource struct {
 	err            error
 }
 
-var defaultTableColumns = []string{"ID", "FolderParentID", "Name", "Username", "URI"}
-
 // ResourceListCmd Lists a Passbolt Resource
 var ResourceListCmd = &cobra.Command{
 	Use:     "resource",
@@ -50,7 +46,7 @@ func init() {
 	flags.Bool("own", false, "Resources that are owned by me")
 	flags.StringP("group", "g", "", "Resources that are shared with group")
 	flags.StringArrayP("folder", "f", []string{}, "Resources that are in folder")
-	flags.StringArrayP("column", "c", defaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: ID, FolderParentID, Name, Username, URI, Password, Description, CreatedTimestamp, ModifiedTimestamp")
+	flags.StringArrayP("column", "c", resourceDefaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(resourceColumnResolver.Canonical(), ", ")+"\nLegacy PascalCase column names (ID, FolderParentID, ...) remain accepted for backwards compatibility.")
 }
 
 type resourceListConfig struct {
@@ -72,17 +68,11 @@ func ResourceList(cmd *cobra.Command, args []string) error {
 
 	// Check if we need to fetch secrets (expensive server join + RSA decryption)
 	// For v5 resources, metadata (name, username, uri) can be decrypted without secrets
-	needSecrets := false
-	for _, col := range config.columns {
-		switch strings.ToLower(col) {
-		case "password", "description":
-			needSecrets = true
-		}
-	}
+	needSecrets := columnsRequireSecrets(config.columns)
 
-	// Check if CEL filter references Password, Description, or Secret
+	// Check if CEL filter references any secret-bearing column (canonical or alias).
 	if !needSecrets && config.celFilter != "" {
-		refsSecrets, err := util.CELExpressionReferencesFields(config.celFilter, []string{"Password", "Description", "Secret"}, CelEnvOptions...)
+		refsSecrets, err := util.CELExpressionReferencesFields(config.celFilter, resourceSecretCelNames, resourceCelEnvOptions...)
 		if err != nil {
 			return fmt.Errorf("parsing filter: %w", err)
 		}
@@ -304,6 +294,12 @@ func printJSONResources(
 			Description:       &desc,
 			CreatedTimestamp:  &d.resource.Created.Time,
 			ModifiedTimestamp: &d.resource.Modified.Time,
+			Deleted:           d.resource.Deleted,
+			Expired:           d.resource.Expired != nil,
+			ResourceTypeID:    &d.resource.ResourceTypeID,
+		}
+		if d.resource.Expired != nil {
+			output.ExpiredAt = &d.resource.Expired.Time
 		}
 		if len(d.metadataFields) > 0 {
 			output.Metadata = d.metadataFields
@@ -325,8 +321,6 @@ func printJSONResources(
 			}
 
 			for _, col := range columns {
-				col = strings.ToLower(col)
-
 				if val, ok := resourceMap[col]; ok {
 					filteredMap[i][col] = val
 				}
@@ -357,29 +351,14 @@ func printTableResources(
 
 	for _, d := range decrypted {
 		entry := make([]string, len(columns))
-		for i := range columns {
-			switch strings.ToLower(columns[i]) {
-			case "id":
-				entry[i] = d.resource.ID
-			case "folderparentid":
-				entry[i] = d.resource.FolderParentID
-			case "name":
-				entry[i] = shellescape.StripUnsafe(d.name)
-			case "username":
-				entry[i] = shellescape.StripUnsafe(d.username)
-			case "uri":
-				entry[i] = shellescape.StripUnsafe(d.uri)
-			case "password":
-				entry[i] = shellescape.StripUnsafe(d.password)
-			case "description":
-				entry[i] = shellescape.StripUnsafe(d.description)
-			case "createdtimestamp":
-				entry[i] = d.resource.Created.Format(time.RFC3339)
-			case "modifiedtimestamp":
-				entry[i] = d.resource.Modified.Format(time.RFC3339)
-			default:
-				return fmt.Errorf("unknown Column: %v", columns[i])
+		for i, col := range columns {
+			// Input is normalized by parseResourceListFlags; a miss here is a
+			// defensive guard against a future caller that skips that step.
+			spec, ok := resourceColumnsByName[col]
+			if !ok {
+				return fmt.Errorf("unknown column: %q", col)
 			}
+			entry[i] = spec.tableValue(d)
 		}
 		data = append(data, entry)
 	}
@@ -411,6 +390,10 @@ func parseResourceListFlags(cmd *cobra.Command) (*resourceListConfig, error) {
 	}
 	if len(columns) == 0 {
 		return nil, fmt.Errorf("you need to specify at least one column to return")
+	}
+	columns, err = resourceColumnResolver.NormalizeAll(columns)
+	if err != nil {
+		return nil, err
 	}
 	jsonOutput, err := cmd.Flags().GetBool("json")
 	if err != nil {
