@@ -1,5 +1,12 @@
 // Package util provides shared utilities for the CLI.
 //
+// # Shared command lifecycle
+//
+// WithClient(cmd, fn) wraps context creation, login, session-key persistence +
+// logout, and SilenceUsage so command RunE functions don't repeat that plumbing.
+// Read flags first (so flag errors still print usage), then run the API calls and
+// rendering inside fn, which receives the context and a logged-in *api.Client.
+//
 // # Shared output helpers
 //
 // Entity commands render results as JSON or pterm tables. These helpers keep that

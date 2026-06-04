@@ -13,6 +13,7 @@ import (
 
 	"github.com/passbolt/go-passbolt/api"
 	"github.com/passbolt/go-passbolt/helper"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/term"
 )
@@ -55,6 +56,23 @@ func SaveSessionKeysAndLogout(ctx context.Context, client *api.Client) {
 		}
 	}
 	client.Logout(ctx)
+}
+
+// WithClient runs fn with a logged-in client, handling context, login,
+// session-key persistence + logout, and SilenceUsage. SilenceUsage is set after
+// login, so flag and login errors still print usage while runtime errors do not.
+func WithClient(cmd *cobra.Command, fn func(ctx context.Context, client *api.Client) error) error {
+	ctx, cancel := GetContext()
+	defer cancel()
+
+	client, err := GetClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer SaveSessionKeysAndLogout(ctx, client)
+	cmd.SilenceUsage = true
+
+	return fn(ctx, client)
 }
 
 // GetClient gets a Logged in Passbolt Client
