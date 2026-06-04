@@ -1,12 +1,13 @@
 package group
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"strings"
 
 	"al.essio.dev/pkg/shellescape"
 	"github.com/passbolt/go-passbolt-cli/util"
+	"github.com/passbolt/go-passbolt/api"
 	"github.com/passbolt/go-passbolt/helper"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -42,47 +43,34 @@ func GroupGet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		name, memberships, err := helper.GetGroup(
+			ctx,
+			client,
+			id,
+		)
+		if err != nil {
+			return fmt.Errorf("getting Group: %w", err)
+		}
 
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
+		if jsonOutput {
+			groupUserMemberships := []GroupUserMembershipJSONOutput{}
+			for i := range memberships {
+				groupUserMemberships = append(groupUserMemberships, GroupUserMembershipJSONOutput{
+					ID:             &memberships[i].UserID,
+					Username:       &memberships[i].Username,
+					FirstName:      &memberships[i].UserFirstName,
+					LastName:       &memberships[i].UserLastName,
+					IsGroupManager: &memberships[i].IsGroupManager,
+				})
+			}
 
-	name, memberships, err := helper.GetGroup(
-		ctx,
-		client,
-		id,
-	)
-	if err != nil {
-		return fmt.Errorf("getting Group: %w", err)
-	}
-
-	if jsonOutput {
-		groupUserMemberships := []GroupUserMembershipJSONOutput{}
-		for i := range memberships {
-			groupUserMemberships = append(groupUserMemberships, GroupUserMembershipJSONOutput{
-				ID:             &memberships[i].UserID,
-				Username:       &memberships[i].Username,
-				FirstName:      &memberships[i].UserFirstName,
-				LastName:       &memberships[i].UserLastName,
-				IsGroupManager: &memberships[i].IsGroupManager,
+			return util.PrintJSON(GroupJSONOutput{
+				Name:  &name,
+				Users: groupUserMemberships,
 			})
 		}
 
-		jsonGroup, err := json.MarshalIndent(GroupJSONOutput{
-			Name:  &name,
-			Users: groupUserMemberships,
-		}, "", "  ")
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(jsonGroup))
-
-	} else {
 		fmt.Printf("Name: %v\n", name)
 		// Print Memberships
 		if len(columns) != 0 {
@@ -112,6 +100,6 @@ func GroupGet(cmd *cobra.Command, args []string) error {
 
 			pterm.DefaultTable.WithHasHeader().WithData(data).Render()
 		}
-	}
-	return nil
+		return nil
+	})
 }

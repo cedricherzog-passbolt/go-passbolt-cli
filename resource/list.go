@@ -2,7 +2,6 @@ package resource
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -12,7 +11,6 @@ import (
 	"github.com/passbolt/go-passbolt-cli/util"
 	"github.com/passbolt/go-passbolt/api"
 	"github.com/passbolt/go-passbolt/helper"
-	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -79,46 +77,38 @@ func ResourceList(cmd *cobra.Command, args []string) error {
 		needSecrets = refsSecrets
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		resources, err := client.GetResources(ctx, &api.GetResourcesOptions{
+			FilterIsFavorite:        config.favorite,
+			FilterIsOwnedByMe:       config.own,
+			FilterIsSharedWithGroup: config.group,
+			FilterHasParent:         config.folderParents,
+			ContainSecret:           needSecrets,
+		})
+		if err != nil {
+			return fmt.Errorf("listing Resource: %w", err)
+		}
 
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
-
-	resources, err := client.GetResources(ctx, &api.GetResourcesOptions{
-		FilterIsFavorite:        config.favorite,
-		FilterIsOwnedByMe:       config.own,
-		FilterIsSharedWithGroup: config.group,
-		FilterHasParent:         config.folderParents,
-		ContainSecret:           needSecrets,
-	})
-	if err != nil {
-		return fmt.Errorf("listing Resource: %w", err)
-	}
-
-	// Decrypt all resources in parallel
-	decrypted, err := decryptResourcesParallel(ctx, client, resources, needSecrets)
-	if err != nil {
-		return err
-	}
-
-	// Apply CEL filter on already-decrypted data
-	if config.celFilter != "" {
-		decrypted, err = filterDecryptedResources(decrypted, config.celFilter, ctx)
+		// Decrypt all resources in parallel
+		decrypted, err := decryptResourcesParallel(ctx, client, resources, needSecrets)
 		if err != nil {
 			return err
 		}
-	}
 
-	if config.jsonOutput {
-		return printJSONResources(decrypted, config.columnsChanged, config.columns)
-	}
+		// Apply CEL filter on already-decrypted data
+		if config.celFilter != "" {
+			decrypted, err = filterDecryptedResources(decrypted, config.celFilter, ctx)
+			if err != nil {
+				return err
+			}
+		}
 
-	return printTableResources(decrypted, config.columns)
+		if config.jsonOutput {
+			return printJSONResources(decrypted, config.columnsChanged, config.columns)
+		}
+
+		return printTableResources(decrypted, config.columns)
+	})
 }
 
 func decryptResourcesParallel(ctx context.Context, client *api.Client, resources []api.Resource, needSecrets bool) ([]decryptedResource, error) {
@@ -311,60 +301,25 @@ func printJSONResources(
 	}
 
 	if isColumnsChanged {
-		filteredMap := make([]map[string]interface{}, len(outputResources))
-		for i := range outputResources {
-			filteredMap[i] = make(map[string]interface{})
-			data, _ := json.Marshal(outputResources[i])
-			var resourceMap map[string]interface{}
-			if err := json.Unmarshal(data, &resourceMap); err != nil {
-				return fmt.Errorf("unmarshaling resource: %w", err)
-			}
-
-			for _, col := range columns {
-				if val, ok := resourceMap[col]; ok {
-					filteredMap[i][col] = val
-				}
-			}
-		}
-
-		jsonResources, err := json.MarshalIndent(filteredMap, "", "  ")
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(jsonResources))
-		return nil
+		return util.PrintJSONColumnFiltered(outputResources, columns)
 	}
 
-	jsonResources, err := json.MarshalIndent(outputResources, "", "  ")
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(jsonResources))
-	return nil
+	return util.PrintJSON(outputResources)
 }
 
 func printTableResources(
 	decrypted []decryptedResource,
 	columns []string,
 ) error {
-	data := pterm.TableData{columns}
-
-	for _, d := range decrypted {
-		entry := make([]string, len(columns))
-		for i, col := range columns {
-			// Input is normalized by parseResourceListFlags; a miss here is a
-			// defensive guard against a future caller that skips that step.
-			spec, ok := resourceColumnsByName[col]
-			if !ok {
-				return fmt.Errorf("unknown column: %q", col)
-			}
-			entry[i] = spec.tableValue(d)
+	// Input is normalized by parseResourceListFlags; a miss in the resolver is a
+	// defensive guard against a future caller that skips that step.
+	return util.PrintTable(columns, decrypted, func(d decryptedResource, col string) (string, bool) {
+		spec, ok := resourceColumnsByName[col]
+		if !ok {
+			return "", false
 		}
-		data = append(data, entry)
-	}
-
-	pterm.DefaultTable.WithHasHeader().WithData(data).Render()
-	return nil
+		return spec.tableValue(d), true
+	})
 }
 
 func parseResourceListFlags(cmd *cobra.Command) (*resourceListConfig, error) {

@@ -1,9 +1,11 @@
 package folder
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/passbolt/go-passbolt-cli/util"
+	"github.com/passbolt/go-passbolt/api"
 	"github.com/passbolt/go-passbolt/helper"
 	"github.com/spf13/cobra"
 )
@@ -44,26 +46,17 @@ func FolderShare(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
-
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
-
-	err = helper.ShareFolderWithUsersAndGroups(
-		ctx,
-		client,
-		id,
-		users,
-		groups,
-		pType,
-	)
-	if err != nil {
-		return fmt.Errorf("sharing Folder: %w", err)
-	}
-	return nil
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		if err := helper.ShareFolderWithUsersAndGroups(
+			ctx,
+			client,
+			id,
+			users,
+			groups,
+			pType,
+		); err != nil {
+			return fmt.Errorf("sharing Folder: %w", err)
+		}
+		return nil
+	})
 }

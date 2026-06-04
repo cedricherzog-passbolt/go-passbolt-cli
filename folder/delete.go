@@ -1,9 +1,11 @@
 package folder
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/passbolt/go-passbolt-cli/util"
+	"github.com/passbolt/go-passbolt/api"
 	"github.com/spf13/cobra"
 )
 
@@ -16,28 +18,18 @@ var FolderDeleteCmd = &cobra.Command{
 }
 
 func FolderDelete(cmd *cobra.Command, args []string) error {
-	folderID, err := cmd.Flags().GetString("id")
+	id, err := cmd.Flags().GetString("id")
 	if err != nil {
 		return err
 	}
-
-	if folderID == "" {
+	if id == "" {
 		return fmt.Errorf("no ID to Delete Provided")
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
-
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
-
-	err = client.DeleteFolder(ctx, folderID)
-	if err != nil {
-		return fmt.Errorf("deleting Folder: %w", err)
-	}
-	return nil
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		if err := client.DeleteFolder(ctx, id); err != nil {
+			return fmt.Errorf("deleting Folder: %w", err)
+		}
+		return nil
+	})
 }

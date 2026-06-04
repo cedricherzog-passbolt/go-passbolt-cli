@@ -1,16 +1,13 @@
 package resource
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"strconv"
-	"strings"
-	"time"
 
 	"al.essio.dev/pkg/shellescape"
 	"github.com/passbolt/go-passbolt-cli/util"
+	"github.com/passbolt/go-passbolt/api"
 	"github.com/passbolt/go-passbolt/helper"
-	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -53,63 +50,51 @@ func ResourceGet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
-
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
-
-	resource, err := client.GetResource(ctx, id)
-	if err != nil {
-		return fmt.Errorf("getting resource: %w", err)
-	}
-	rType, err := client.GetResourceType(ctx, resource.ResourceTypeID)
-	if err != nil {
-		return fmt.Errorf("getting resource type: %w", err)
-	}
-	secret, err := client.GetSecret(ctx, resource.ID)
-	if err != nil {
-		return fmt.Errorf("getting secret: %w", err)
-	}
-
-	folderParentID, metadata, secretFields, err :=
-		helper.GetResourceFieldMaps(client, *resource, *secret, *rType, true)
-	if err != nil {
-		return fmt.Errorf("decrypting resource: %w", err)
-	}
-
-	name := helper.GetStringField(metadata, "name")
-	username := helper.GetStringField(metadata, "username")
-	uri := helper.GetStringField(metadata, "uri")
-	description := helper.GetStringField(metadata, "description")
-	password := helper.GetStringField(secretFields, "password")
-
-	if jsonOutput {
-		output := ResourceJSONOutput{
-			FolderParentID: &folderParentID,
-			Name:           &name,
-			Username:       &username,
-			URI:            &uri,
-			Password:       &password,
-			Description:    &description,
-		}
-		if len(metadata) > 0 {
-			output.Metadata = metadata
-		}
-		if len(secretFields) > 0 {
-			output.Secret = secretFields
-		}
-
-		jsonResource, err := json.MarshalIndent(output, "", "  ")
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		resource, err := client.GetResource(ctx, id)
 		if err != nil {
-			return err
+			return fmt.Errorf("getting resource: %w", err)
 		}
-		fmt.Println(string(jsonResource))
-	} else {
+		rType, err := client.GetResourceType(ctx, resource.ResourceTypeID)
+		if err != nil {
+			return fmt.Errorf("getting resource type: %w", err)
+		}
+		secret, err := client.GetSecret(ctx, resource.ID)
+		if err != nil {
+			return fmt.Errorf("getting secret: %w", err)
+		}
+
+		folderParentID, metadata, secretFields, err :=
+			helper.GetResourceFieldMaps(client, *resource, *secret, *rType, true)
+		if err != nil {
+			return fmt.Errorf("decrypting resource: %w", err)
+		}
+
+		name := helper.GetStringField(metadata, "name")
+		username := helper.GetStringField(metadata, "username")
+		uri := helper.GetStringField(metadata, "uri")
+		description := helper.GetStringField(metadata, "description")
+		password := helper.GetStringField(secretFields, "password")
+
+		if jsonOutput {
+			output := ResourceJSONOutput{
+				FolderParentID: &folderParentID,
+				Name:           &name,
+				Username:       &username,
+				URI:            &uri,
+				Password:       &password,
+				Description:    &description,
+			}
+			if len(metadata) > 0 {
+				output.Metadata = metadata
+			}
+			if len(secretFields) > 0 {
+				output.Secret = secretFields
+			}
+
+			return util.PrintJSON(output)
+		}
+
 		fmt.Printf("FolderParentID: %v\n", folderParentID)
 		fmt.Printf("Name: %v\n", shellescape.StripUnsafe(name))
 		fmt.Printf("Username: %v\n", shellescape.StripUnsafe(username))
@@ -125,12 +110,12 @@ func ResourceGet(cmd *cobra.Command, args []string) error {
 				fmt.Printf("%s: %v\n", k, shellescape.StripUnsafe(fmt.Sprint(v)))
 			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func ResourcePermission(cmd *cobra.Command, args []string) error {
-	resource, err := cmd.Flags().GetString("id")
+	resourceID, err := cmd.Flags().GetString("id")
 	if err != nil {
 		return err
 	}
@@ -146,73 +131,20 @@ func ResourcePermission(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
-
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
-
-	permissions, err := client.GetResourcePermissions(ctx, resource)
-	if err != nil {
-		return fmt.Errorf("listing Permission: %w", err)
-	}
-
-	if jsonOutput {
-		outputPermissions := []util.PermissionJSONOutput{}
-		for i := range permissions {
-			outputPermissions = append(outputPermissions, util.PermissionJSONOutput{
-				ID:                &permissions[i].ID,
-				Aco:               &permissions[i].ACO,
-				AcoForeignKey:     &permissions[i].ACOForeignKey,
-				Aro:               &permissions[i].ARO,
-				AroForeignKey:     &permissions[i].AROForeignKey,
-				Type:              &permissions[i].Type,
-				CreatedTimestamp:  &permissions[i].Created.Time,
-				ModifiedTimestamp: &permissions[i].Modified.Time,
-			})
-		}
-		jsonPermissions, err := json.MarshalIndent(outputPermissions, "", "  ")
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		permissions, err := client.GetResourcePermissions(ctx, resourceID)
 		if err != nil {
+			return fmt.Errorf("listing Permission: %w", err)
+		}
+
+		if jsonOutput {
+			return util.PrintJSON(util.PermissionsToJSONOutput(permissions))
+		}
+
+		if err := util.PrintPermissionTable(columns, permissions); err != nil {
+			cmd.SilenceUsage = false
 			return err
 		}
-		fmt.Println(string(jsonPermissions))
-	} else {
-		data := pterm.TableData{columns}
-
-		for _, permission := range permissions {
-			entry := make([]string, len(columns))
-			for i := range columns {
-				switch strings.ToLower(columns[i]) {
-				case "id":
-					entry[i] = permission.ID
-				case "aco":
-					entry[i] = permission.ACO
-				case "acoforeignkey":
-					entry[i] = permission.ACOForeignKey
-				case "aro":
-					entry[i] = permission.ARO
-				case "aroforeignkey":
-					entry[i] = permission.AROForeignKey
-				case "type":
-					entry[i] = strconv.Itoa(permission.Type)
-				case "createdtimestamp":
-					entry[i] = permission.Created.Format(time.RFC3339)
-				case "modifiedtimestamp":
-					entry[i] = permission.Modified.Format(time.RFC3339)
-				default:
-					cmd.SilenceUsage = false
-					return fmt.Errorf("unknown Column: %v", columns[i])
-				}
-			}
-			data = append(data, entry)
-		}
-
-		pterm.DefaultTable.WithHasHeader().WithData(data).Render()
-	}
-
-	return nil
+		return nil
+	})
 }

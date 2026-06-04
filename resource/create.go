@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -80,98 +81,86 @@ func ResourceCreate(cmd *cobra.Command, args []string) error {
 
 	useGeneric := resourceType != "" || len(fields) > 0 || len(secretFields) > 0
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		var id string
+		var err error
 
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
+		if useGeneric {
+			// Generic path: use CreateResourceGeneric with field maps
+			metadataFields := map[string]any{}
+			secretFieldsMap := map[string]any{}
 
-	var id string
-
-	if useGeneric {
-		// Generic path: use CreateResourceGeneric with field maps
-		metadataFields := map[string]any{}
-		secretFieldsMap := map[string]any{}
-
-		// Map standard flags to field maps
-		if name != "" {
-			metadataFields["name"] = name
-		}
-		if username != "" {
-			metadataFields["username"] = username
-		}
-		if uri != "" {
-			metadataFields["uri"] = uri
-		}
-		if description != "" {
-			metadataFields["description"] = description
-		}
-		if password != "" {
-			secretFieldsMap["password"] = password
-		}
-
-		// Parse --field flags
-		for _, f := range fields {
-			k, v, err := parseKeyValue(f)
-			if err != nil {
-				return fmt.Errorf("invalid --field: %w", err)
+			// Map standard flags to field maps
+			if name != "" {
+				metadataFields["name"] = name
 			}
-			metadataFields[k] = v
-		}
-
-		// Parse --secret-field flags
-		for _, f := range secretFields {
-			k, v, err := parseKeyValue(f)
-			if err != nil {
-				return fmt.Errorf("invalid --secret-field: %w", err)
+			if username != "" {
+				metadataFields["username"] = username
 			}
-			secretFieldsMap[k] = v
-		}
-
-		if resourceType == "" {
-			if client.MetadataTypeSettings().DefaultResourceType == api.PassboltAPIVersionTypeV5 {
-				resourceType = "v5-default"
-			} else {
-				resourceType = "password-and-description"
+			if uri != "" {
+				metadataFields["uri"] = uri
 			}
+			if description != "" {
+				metadataFields["description"] = description
+			}
+			if password != "" {
+				secretFieldsMap["password"] = password
+			}
+
+			// Parse --field flags
+			for _, f := range fields {
+				k, v, err := parseKeyValue(f)
+				if err != nil {
+					return fmt.Errorf("invalid --field: %w", err)
+				}
+				metadataFields[k] = v
+			}
+
+			// Parse --secret-field flags
+			for _, f := range secretFields {
+				k, v, err := parseKeyValue(f)
+				if err != nil {
+					return fmt.Errorf("invalid --secret-field: %w", err)
+				}
+				secretFieldsMap[k] = v
+			}
+
+			if resourceType == "" {
+				if client.MetadataTypeSettings().DefaultResourceType == api.PassboltAPIVersionTypeV5 {
+					resourceType = "v5-default"
+				} else {
+					resourceType = "password-and-description"
+				}
+			}
+
+			id, err = helper.CreateResourceGeneric(ctx, client, resourceType, folderParentID, metadataFields, secretFieldsMap)
+		} else {
+			// Legacy path: use standard CreateResource
+			if name == "" {
+				return fmt.Errorf("required flag \"name\" not set")
+			}
+			if password == "" {
+				return fmt.Errorf("required flag \"password\" not set")
+			}
+			id, err = helper.CreateResource(ctx, client, folderParentID, name, username, uri, password, description)
 		}
 
-		id, err = helper.CreateResourceGeneric(ctx, client, resourceType, folderParentID, metadataFields, secretFieldsMap)
-	} else {
-		// Legacy path: use standard CreateResource
-		if name == "" {
-			return fmt.Errorf("required flag \"name\" not set")
-		}
-		if password == "" {
-			return fmt.Errorf("required flag \"password\" not set")
-		}
-		id, err = helper.CreateResource(ctx, client, folderParentID, name, username, uri, password, description)
-	}
-
-	if err != nil {
-		return fmt.Errorf("creating resource: %w", err)
-	}
-
-	if expiry != "" {
-		if err := SetResourceExpiry(ctx, client, id, expiry); err != nil {
-			return err
-		}
-	}
-
-	if jsonOutput {
-		jsonID, err := json.MarshalIndent(map[string]string{"id": id}, "", "  ")
 		if err != nil {
-			return fmt.Errorf("marshaling json: %w", err)
+			return fmt.Errorf("creating resource: %w", err)
 		}
-		fmt.Println(string(jsonID))
-	} else {
+
+		if expiry != "" {
+			if err := SetResourceExpiry(ctx, client, id, expiry); err != nil {
+				return err
+			}
+		}
+
+		if jsonOutput {
+			return util.PrintJSON(map[string]string{"id": id})
+		}
 		fmt.Printf("ResourceID: %v\n", id)
-	}
-	return nil
+		return nil
+	})
 }
 
 // parseKeyValue parses a "key=value" string. If the value looks like JSON

@@ -1,15 +1,13 @@
 package user
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/passbolt/go-passbolt-cli/util"
 	"github.com/passbolt/go-passbolt/api"
 	"github.com/spf13/cobra"
-
-	"github.com/pterm/pterm"
 )
 
 // UserListCmd Lists a Passbolt User
@@ -47,36 +45,28 @@ func UserList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		users, err := client.GetUsers(ctx, &api.GetUsersOptions{
+			FilterHasGroup:  config.groups,
+			FilterHasAccess: config.resources,
+			FilterSearch:    config.search,
+			FilterIsAdmin:   config.admin,
+		})
+		if err != nil {
+			return fmt.Errorf("listing User: %w", err)
+		}
 
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
+		users, err = filterUsers(&users, config.celFilter, ctx)
+		if err != nil {
+			return err
+		}
 
-	users, err := client.GetUsers(ctx, &api.GetUsersOptions{
-		FilterHasGroup:  config.groups,
-		FilterHasAccess: config.resources,
-		FilterSearch:    config.search,
-		FilterIsAdmin:   config.admin,
+		if config.jsonOutput {
+			return printJSONUsers(users, config.columnsChanged, config.columns)
+		}
+
+		return printTableUsers(config.columns, users)
 	})
-	if err != nil {
-		return fmt.Errorf("listing User: %w", err)
-	}
-
-	users, err = filterUsers(&users, config.celFilter, ctx)
-	if err != nil {
-		return err
-	}
-
-	if config.jsonOutput {
-		return printJSONUsers(users, config.columnsChanged, config.columns)
-	}
-
-	return printTableUsers(config.columns, users)
 }
 
 func printJSONUsers(users []api.User, isColumnsChanged bool, columns []string) error {
@@ -97,58 +87,22 @@ func printJSONUsers(users []api.User, isColumnsChanged bool, columns []string) e
 	}
 
 	if isColumnsChanged {
-		filteredMap := make([]map[string]interface{}, len(outputUsers))
-		for i := range outputUsers {
-			filteredMap[i] = make(map[string]interface{})
-			data, _ := json.Marshal(outputUsers[i])
-			var userMap map[string]interface{}
-			if err := json.Unmarshal(data, &userMap); err != nil {
-				return fmt.Errorf("unmarshaling user: %w", err)
-			}
-
-			for _, col := range columns {
-				if val, ok := userMap[col]; ok {
-					filteredMap[i][col] = val
-				}
-			}
-		}
-
-		jsonUsers, err := json.MarshalIndent(filteredMap, "", "  ")
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(jsonUsers))
-		return nil
+		return util.PrintJSONColumnFiltered(outputUsers, columns)
 	}
 
-	jsonUsers, err := json.MarshalIndent(outputUsers, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(jsonUsers))
-	return nil
+	return util.PrintJSON(outputUsers)
 }
 
 func printTableUsers(columns []string, users []api.User) error {
-	data := pterm.TableData{columns}
-
-	for _, user := range users {
-		entry := make([]string, len(columns))
-		for i, col := range columns {
-			// Input is normalized by parseUserListFlags; a miss here is a
-			// defensive guard against a future caller that skips that step.
-			spec, ok := userColumnsByName[col]
-			if !ok {
-				return fmt.Errorf("unknown column: %q", col)
-			}
-			entry[i] = spec.tableValue(user)
+	// Input is normalized by parseUserListFlags; a miss in the resolver is a
+	// defensive guard against a future caller that skips that step.
+	return util.PrintTable(columns, users, func(user api.User, col string) (string, bool) {
+		spec, ok := userColumnsByName[col]
+		if !ok {
+			return "", false
 		}
-		data = append(data, entry)
-	}
-
-	pterm.DefaultTable.WithHasHeader().WithData(data).Render()
-	return nil
+		return spec.tableValue(user), true
+	})
 }
 
 func parseUserListFlags(cmd *cobra.Command) (*userListConfig, error) {

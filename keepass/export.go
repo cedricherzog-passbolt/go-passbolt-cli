@@ -1,6 +1,7 @@
 package keepass
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -62,86 +63,78 @@ func KeepassExport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid kdbx-version %q: must be v3 or v4", kdbxVersionFlag)
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
-
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
-
-	if keepassPassword == "" {
-		pw, err := util.ReadPassword("Enter KeePass Password:")
-		if err != nil {
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		if keepassPassword == "" {
+			pw, err := util.ReadPassword("Enter KeePass Password:")
+			if err != nil {
+				fmt.Println()
+				return fmt.Errorf("reading KeePass Password: %w", err)
+			}
+			keepassPassword = pw
 			fmt.Println()
-			return fmt.Errorf("reading KeePass Password: %w", err)
 		}
-		keepassPassword = pw
-		fmt.Println()
-	}
 
-	fmt.Println("Getting Resources...")
-	resources, err := client.GetResources(ctx, &api.GetResourcesOptions{
-		ContainSecret:       true,
-		ContainResourceType: true,
-		ContainTags:         true,
-	})
-	if err != nil {
-		return fmt.Errorf("getting Resources: %w", err)
-	}
-
-	file, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("creating File: %w", err)
-	}
-	defer file.Close()
-
-	rootGroup := gokeepasslib.NewGroup()
-	rootGroup.Name = "root"
-
-	pterm.EnableStyling()
-	pterm.DisableColor()
-	progressbar, err := pterm.DefaultProgressbar.WithTitle("Decryping Resources").WithTotal(len(resources)).Start()
-	if err != nil {
-		return fmt.Errorf("progress: %w", err)
-	}
-
-	for _, resource := range resources {
-		entry, err := getKeepassEntry(client, resource, resource.Secrets[0], resource.ResourceType)
+		fmt.Println("Getting Resources...")
+		resources, err := client.GetResources(ctx, &api.GetResourcesOptions{
+			ContainSecret:       true,
+			ContainResourceType: true,
+			ContainTags:         true,
+		})
 		if err != nil {
-			fmt.Printf("\nSkipping Export of Resource %v %v Because of: %v\n", resource.ID, resource.Name, err)
-			progressbar.Increment()
-			continue
+			return fmt.Errorf("getting Resources: %w", err)
 		}
 
-		rootGroup.Entries = append(rootGroup.Entries, *entry)
-		progressbar.Increment()
-	}
+		file, err := os.Create(filename)
+		if err != nil {
+			return fmt.Errorf("creating File: %w", err)
+		}
+		defer file.Close()
 
-	db := gokeepasslib.NewDatabase(kdbxVersion)
-	db.Content.Meta.DatabaseName = "Passbolt Export"
+		rootGroup := gokeepasslib.NewGroup()
+		rootGroup.Name = "root"
 
-	if keepassPassword != "" {
-		db.Credentials = gokeepasslib.NewPasswordCredentials(keepassPassword)
-	}
+		pterm.EnableStyling()
+		pterm.DisableColor()
+		progressbar, err := pterm.DefaultProgressbar.WithTitle("Decryping Resources").WithTotal(len(resources)).Start()
+		if err != nil {
+			return fmt.Errorf("progress: %w", err)
+		}
 
-	db.Content.Root = &gokeepasslib.RootData{
-		Groups: []gokeepasslib.Group{rootGroup},
-	}
+		for _, resource := range resources {
+			entry, err := getKeepassEntry(client, resource, resource.Secrets[0], resource.ResourceType)
+			if err != nil {
+				fmt.Printf("\nSkipping Export of Resource %v %v Because of: %v\n", resource.ID, resource.Name, err)
+				progressbar.Increment()
+				continue
+			}
 
-	if err := db.LockProtectedEntries(); err != nil {
-		return fmt.Errorf("locking protected entries: %w", err)
-	}
+			rootGroup.Entries = append(rootGroup.Entries, *entry)
+			progressbar.Increment()
+		}
 
-	keepassEncoder := gokeepasslib.NewEncoder(file)
-	if err := keepassEncoder.Encode(db); err != nil {
-		return fmt.Errorf("encodeing kdbx: %w", err)
-	}
-	fmt.Println("Done")
+		db := gokeepasslib.NewDatabase(kdbxVersion)
+		db.Content.Meta.DatabaseName = "Passbolt Export"
 
-	return nil
+		if keepassPassword != "" {
+			db.Credentials = gokeepasslib.NewPasswordCredentials(keepassPassword)
+		}
+
+		db.Content.Root = &gokeepasslib.RootData{
+			Groups: []gokeepasslib.Group{rootGroup},
+		}
+
+		if err := db.LockProtectedEntries(); err != nil {
+			return fmt.Errorf("locking protected entries: %w", err)
+		}
+
+		keepassEncoder := gokeepasslib.NewEncoder(file)
+		if err := keepassEncoder.Encode(db); err != nil {
+			return fmt.Errorf("encodeing kdbx: %w", err)
+		}
+		fmt.Println("Done")
+
+		return nil
+	})
 }
 
 func getKeepassEntry(client *api.Client, resource api.Resource, secret api.Secret, rType api.ResourceType) (*gokeepasslib.Entry, error) {
