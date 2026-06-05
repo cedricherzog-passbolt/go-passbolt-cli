@@ -28,7 +28,7 @@ func FolderDelete(cmd *cobra.Command, args []string) error {
 
 	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
 		if err := client.DeleteFolder(ctx, id); err != nil {
-			return fmt.Errorf("deleting Folder: %w", err)
+			return fmt.Errorf("deleting Folder %s: %w", id, err)
 		}
 		return nil
 	})

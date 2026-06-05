@@ -124,7 +124,7 @@ func ResourcePermission(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if len(columns) == 0 {
-		return util.ErrNoColumns
+		return util.NoColumnsError(util.PermissionColumns)
 	}
 	jsonOutput, err := cmd.Flags().GetBool("json")
 	if err != nil {
@@ -134,7 +134,7 @@ func ResourcePermission(cmd *cobra.Command, args []string) error {
 	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
 		permissions, err := client.GetResourcePermissions(ctx, resourceID)
 		if err != nil {
-			return fmt.Errorf("listing Permission: %w", err)
+			return fmt.Errorf("listing Permission for Resource %s: %w", resourceID, err)
 		}
 
 		if jsonOutput {

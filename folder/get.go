@@ -76,7 +76,7 @@ func FolderPermission(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if len(columns) == 0 {
-		return util.ErrNoColumns
+		return util.NoColumnsError(util.PermissionColumns)
 	}
 	jsonOutput, err := cmd.Flags().GetBool("json")
 	if err != nil {
@@ -88,7 +88,7 @@ func FolderPermission(cmd *cobra.Command, args []string) error {
 			ContainPermissions: true,
 		})
 		if err != nil {
-			return fmt.Errorf("listing Permission: %w", err)
+			return fmt.Errorf("listing Permission for Folder %s: %w", folderID, err)
 		}
 
 		permissions := folder.Permissions

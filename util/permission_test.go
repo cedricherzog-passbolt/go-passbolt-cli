@@ -31,7 +31,8 @@ func TestPermissionCell(t *testing.T) {
 		{"AcoForeignKey", "aco-fk"},
 		{"aro", "User"},
 		{"aroforeignkey", "aro-fk"},
-		{"type", "15"},
+		{"type", "owner"}, // Type 15 renders as its human-readable name
+
 		{"createdtimestamp", created.Format(time.RFC3339)},
 		{"modifiedtimestamp", modified.Format(time.RFC3339)},
 	}
@@ -53,6 +54,23 @@ func TestPermissionCell(t *testing.T) {
 			t.Error("expected unknown column to report ok=false")
 		}
 	})
+}
+
+func TestPermissionTypeName(t *testing.T) {
+	cases := []struct {
+		code int
+		want string
+	}{
+		{1, "read"},
+		{7, "update"},
+		{15, "owner"},
+		{99, "99"}, // unknown codes fall back to their numeric form
+	}
+	for _, tc := range cases {
+		if got := permissionTypeName(tc.code); got != tc.want {
+			t.Errorf("permissionTypeName(%d) = %q, want %q", tc.code, got, tc.want)
+		}
+	}
 }
 
 func TestPermissionsToJSONOutput(t *testing.T) {

@@ -344,7 +344,7 @@ func parseResourceListFlags(cmd *cobra.Command) (*resourceListConfig, error) {
 		return nil, err
 	}
 	if len(columns) == 0 {
-		return nil, util.ErrNoColumns
+		return nil, util.NoColumnsError(resourceColumnResolver.Canonical())
 	}
 	columns, err = resourceColumnResolver.NormalizeAll(columns)
 	if err != nil {

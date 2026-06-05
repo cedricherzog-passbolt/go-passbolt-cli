@@ -127,7 +127,7 @@ func parseUserListFlags(cmd *cobra.Command) (*userListConfig, error) {
 		return nil, err
 	}
 	if len(columns) == 0 {
-		return nil, util.ErrNoColumns
+		return nil, util.NoColumnsError(userColumnResolver.Canonical())
 	}
 	columns, err = userColumnResolver.NormalizeAll(columns)
 	if err != nil {

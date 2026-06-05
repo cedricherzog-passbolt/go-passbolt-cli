@@ -181,7 +181,39 @@ func GetClient(ctx context.Context) (*api.Client, error) {
 
 	err = client.Login(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("logging in: %w", err)
+		return nil, ExplainAPIError("logging in", err)
 	}
 	return client, nil
+}
+
+// ExplainAPIError wraps err with operation-level context and, when err carries
+// an *api.APIError, prepends a human-friendly explanation of the HTTP status
+// code so users get actionable guidance instead of a bare status. The original
+// error chain is preserved for errors.Is / errors.As.
+func ExplainAPIError(op string, err error) error {
+	var apiErr *api.APIError
+	if errors.As(err, &apiErr) {
+		if hint := apiStatusHint(apiErr.StatusCode); hint != "" {
+			return fmt.Errorf("%s: %s: %w", op, hint, err)
+		}
+	}
+	return fmt.Errorf("%s: %w", op, err)
+}
+
+// apiStatusHint returns a short human-readable explanation for a Passbolt API
+// HTTP status code, or "" when no specific guidance applies.
+func apiStatusHint(code int) string {
+	switch code {
+	case http.StatusUnauthorized: // 401
+		return "authentication failed, check your private key and password"
+	case http.StatusForbidden: // 403
+		return "access denied, you may lack the required permission or MFA may be needed"
+	case http.StatusNotFound: // 404
+		return "not found, check the requested ID and the server address"
+	default:
+		if code >= 500 {
+			return "the Passbolt server reported an internal error, try again later"
+		}
+		return ""
+	}
 }

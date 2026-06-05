@@ -28,7 +28,7 @@ func GroupDelete(cmd *cobra.Command, args []string) error {
 
 	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
 		if err := client.DeleteGroup(ctx, id); err != nil {
-			return fmt.Errorf("deleting Group: %w", err)
+			return fmt.Errorf("deleting Group %s: %w", id, err)
 		}
 		return nil
 	})

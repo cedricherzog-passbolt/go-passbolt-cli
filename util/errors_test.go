@@ -3,7 +3,10 @@ package util
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
+
+	"github.com/passbolt/go-passbolt/api"
 )
 
 // TestSentinelsMatchableWhenWrapped documents the contract that callers and
@@ -42,5 +45,41 @@ func TestSentinelsMatchableWhenWrapped(t *testing.T) {
 func TestSentinelsAreDistinct(t *testing.T) {
 	if errors.Is(ErrNoID, ErrNoColumns) || errors.Is(ErrNoColumns, ErrNoID) {
 		t.Error("ErrNoID and ErrNoColumns must be distinct sentinel errors")
+	}
+}
+
+// TestNoColumnsError checks the helper lists the valid columns and stays
+// matchable with errors.Is(ErrNoColumns).
+func TestNoColumnsError(t *testing.T) {
+	err := NoColumnsError([]string{"ID", "Name"})
+	if !errors.Is(err, ErrNoColumns) {
+		t.Errorf("NoColumnsError must wrap ErrNoColumns, got %q", err)
+	}
+	if !strings.Contains(err.Error(), "ID") || !strings.Contains(err.Error(), "Name") {
+		t.Errorf("NoColumnsError should list valid columns, got %q", err)
+	}
+}
+
+// TestExplainAPIError verifies a friendly hint is added for known status codes
+// while the underlying *api.APIError stays recoverable with errors.As, and that
+// non-API errors are merely op-wrapped.
+func TestExplainAPIError(t *testing.T) {
+	apiErr := &api.APIError{StatusCode: 403, Message: "Forbidden"}
+	err := ExplainAPIError("logging in", apiErr)
+	if !strings.Contains(err.Error(), "access denied") {
+		t.Errorf("expected friendly 403 hint, got %q", err.Error())
+	}
+	var got *api.APIError
+	if !errors.As(err, &got) {
+		t.Error("ExplainAPIError must preserve the *api.APIError in the chain")
+	}
+
+	base := errors.New("boom")
+	wrapped := ExplainAPIError("doing thing", base)
+	if !errors.Is(wrapped, base) {
+		t.Error("ExplainAPIError must preserve a non-API error chain")
+	}
+	if !strings.HasPrefix(wrapped.Error(), "doing thing: ") {
+		t.Errorf("expected op prefix, got %q", wrapped.Error())
 	}
 }

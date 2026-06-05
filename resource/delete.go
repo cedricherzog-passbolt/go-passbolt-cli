@@ -28,7 +28,7 @@ func ResourceDelete(cmd *cobra.Command, args []string) error {
 
 	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
 		if err := client.DeleteResource(ctx, id); err != nil {
-			return fmt.Errorf("deleting Resource: %w", err)
+			return fmt.Errorf("deleting Resource %s: %w", id, err)
 		}
 		return nil
 	})

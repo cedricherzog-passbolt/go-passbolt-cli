@@ -29,7 +29,7 @@ func UserDelete(cmd *cobra.Command, args []string) error {
 
 	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
 		if err := helper.DeleteUser(ctx, client, id); err != nil {
-			return fmt.Errorf("deleting User: %w", err)
+			return fmt.Errorf("deleting User %s: %w", id, err)
 		}
 		return nil
 	})

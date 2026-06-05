@@ -29,6 +29,36 @@ func PermissionsToJSONOutput(permissions []api.Permission) []PermissionJSONOutpu
 	return out
 }
 
+// PermissionColumns lists the column names accepted by the permission table
+// commands (resource/folder permission). Used to build "valid columns" guidance.
+var PermissionColumns = []string{
+	"ID", "Aco", "AcoForeignKey", "Aro", "AroForeignKey", "Type", "CreatedTimestamp", "ModifiedTimestamp",
+}
+
+// Passbolt permission type codes. These are the bitmask-derived values the API
+// returns for a permission's Type field.
+const (
+	permissionRead   = 1
+	permissionUpdate = 7
+	permissionOwner  = 15
+)
+
+// permissionTypeName maps a Passbolt permission type code to its human-readable
+// name for table output. Unknown codes fall back to their numeric form so the
+// table never hides an unexpected value.
+func permissionTypeName(t int) string {
+	switch t {
+	case permissionRead:
+		return "read"
+	case permissionUpdate:
+		return "update"
+	case permissionOwner:
+		return "owner"
+	default:
+		return strconv.Itoa(t)
+	}
+}
+
 // PrintPermissionTable renders the permission table using the legacy
 // lowercased-column switch shared by the resource and folder permission commands.
 // An unknown column yields an "unknown Column: %v" error (capitalized, preserving
@@ -65,7 +95,7 @@ func permissionCell(p api.Permission, column string) (string, bool) {
 	case "aroforeignkey":
 		return p.AROForeignKey, true
 	case "type":
-		return strconv.Itoa(p.Type), true
+		return permissionTypeName(p.Type), true
 	case "createdtimestamp":
 		return p.Created.Format(time.RFC3339), true
 	case "modifiedtimestamp":
