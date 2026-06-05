@@ -23,7 +23,7 @@ func GroupDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if id == "" {
-		return fmt.Errorf("no ID to Delete Provided")
+		return util.ErrNoID
 	}
 
 	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {

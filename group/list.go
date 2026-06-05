@@ -109,7 +109,7 @@ func parseGroupListFlags(cmd *cobra.Command) (*groupListConfig, error) {
 		return nil, err
 	}
 	if len(columns) == 0 {
-		return nil, fmt.Errorf("you need to specify at least one column to return")
+		return nil, util.ErrNoColumns
 	}
 	columns, err = groupColumnResolver.NormalizeAll(columns)
 	if err != nil {
