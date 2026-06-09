@@ -24,7 +24,7 @@ func init() {
 	flags.StringP("search", "s", "", "Folders that have this in the Name")
 	flags.StringArrayP("folder", "f", []string{}, "Folders that are in this Folder")
 	flags.StringArrayP("group", "g", []string{}, "Folders that are shared with group")
-	flags.StringArrayP("column", "c", folderDefaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(folderColumnResolver.Canonical(), ", ")+"\nLegacy PascalCase column names (ID, FolderParentID, ...) remain accepted for backwards compatibility.")
+	flags.StringArrayP("column", "c", folderColumns.DefaultTableColumns(), "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(folderColumns.Resolver().Canonical(), ", ")+"\nLegacy PascalCase column names (ID, FolderParentID, ...) remain accepted for backwards compatibility.")
 }
 
 type folderListConfig struct {
@@ -51,7 +51,7 @@ func FolderList(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("listing Folder: %w", err)
 		}
 
-		folders, err = filterFolders(&folders, config.celFilter, ctx)
+		folders, err = folderColumns.Filter(ctx, folders, config.celFilter)
 		if err != nil {
 			return err
 		}
@@ -87,13 +87,7 @@ func printJSONFolders(folders []api.Folder, isColumnsChanged bool, columns []str
 func printTableFolders(columns []string, folders []api.Folder) error {
 	// Input is normalized by parseFolderListFlags; a miss in the resolver is a
 	// defensive guard against a future caller that skips that step.
-	return util.PrintTable(columns, folders, func(folder api.Folder, col string) (string, bool) {
-		spec, ok := folderColumnsByName[col]
-		if !ok {
-			return "", false
-		}
-		return spec.tableValue(folder), true
-	})
+	return util.PrintTable(columns, folders, folderColumns.TableValue)
 }
 
 func parseFolderListFlags(cmd *cobra.Command) (*folderListConfig, error) {
@@ -110,9 +104,9 @@ func parseFolderListFlags(cmd *cobra.Command) (*folderListConfig, error) {
 		return nil, err
 	}
 	if len(columns) == 0 {
-		return nil, util.NoColumnsError(folderColumnResolver.Canonical())
+		return nil, util.NoColumnsError(folderColumns.Resolver().Canonical())
 	}
-	columns, err = folderColumnResolver.NormalizeAll(columns)
+	columns, err = folderColumns.Resolver().NormalizeAll(columns)
 	if err != nil {
 		return nil, err
 	}

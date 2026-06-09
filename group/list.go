@@ -23,7 +23,7 @@ func init() {
 	flags := GroupListCmd.Flags()
 	flags.StringArrayP("user", "u", []string{}, "Groups that are shared with group")
 	flags.StringArrayP("manager", "m", []string{}, "Groups that are in folder")
-	flags.StringArrayP("column", "c", groupDefaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(groupColumnResolver.Canonical(), ", ")+"\nLegacy PascalCase column names (ID, Name, CreatedTimestamp, ...) remain accepted for backwards compatibility.")
+	flags.StringArrayP("column", "c", groupColumns.DefaultTableColumns(), "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(groupColumns.Resolver().Canonical(), ", ")+"\nLegacy PascalCase column names (ID, Name, CreatedTimestamp, ...) remain accepted for backwards compatibility.")
 }
 
 type groupListConfig struct {
@@ -50,7 +50,7 @@ func GroupList(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("listing Group: %w", err)
 		}
 
-		groups, err = filterGroups(&groups, config.celFilter, ctx)
+		groups, err = groupColumns.Filter(ctx, groups, config.celFilter)
 		if err != nil {
 			return err
 		}
@@ -86,13 +86,7 @@ func printJSONGroups(groups []api.Group, isColumnsChanged bool, columns []string
 func printTableGroups(columns []string, groups []api.Group) error {
 	// Input is normalized by parseGroupListFlags; a miss in the resolver is a
 	// defensive guard against a future caller that skips that step.
-	return util.PrintTable(columns, groups, func(group api.Group, col string) (string, bool) {
-		spec, ok := groupColumnsByName[col]
-		if !ok {
-			return "", false
-		}
-		return spec.tableValue(group), true
-	})
+	return util.PrintTable(columns, groups, groupColumns.TableValue)
 }
 
 func parseGroupListFlags(cmd *cobra.Command) (*groupListConfig, error) {
@@ -109,9 +103,9 @@ func parseGroupListFlags(cmd *cobra.Command) (*groupListConfig, error) {
 		return nil, err
 	}
 	if len(columns) == 0 {
-		return nil, util.NoColumnsError(groupColumnResolver.Canonical())
+		return nil, util.NoColumnsError(groupColumns.Resolver().Canonical())
 	}
-	columns, err = groupColumnResolver.NormalizeAll(columns)
+	columns, err = groupColumns.Resolver().NormalizeAll(columns)
 	if err != nil {
 		return nil, err
 	}

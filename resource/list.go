@@ -44,7 +44,7 @@ func init() {
 	flags.Bool("own", false, "Resources that are owned by me")
 	flags.StringP("group", "g", "", "Resources that are shared with group")
 	flags.StringArrayP("folder", "f", []string{}, "Resources that are in folder")
-	flags.StringArrayP("column", "c", resourceDefaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(resourceColumnResolver.Canonical(), ", ")+"\nLegacy PascalCase column names (ID, FolderParentID, ...) remain accepted for backwards compatibility.")
+	flags.StringArrayP("column", "c", resourceColumns.DefaultTableColumns(), "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(resourceColumns.Resolver().Canonical(), ", ")+"\nLegacy PascalCase column names (ID, FolderParentID, ...) remain accepted for backwards compatibility.")
 }
 
 type resourceListConfig struct {
@@ -66,11 +66,11 @@ func ResourceList(cmd *cobra.Command, args []string) error {
 
 	// Check if we need to fetch secrets (expensive server join + RSA decryption)
 	// For v5 resources, metadata (name, username, uri) can be decrypted without secrets
-	needSecrets := columnsRequireSecrets(config.columns)
+	needSecrets := resourceColumns.RequiresSecrets(config.columns)
 
 	// Check if CEL filter references any secret-bearing column (canonical or alias).
 	if !needSecrets && config.celFilter != "" {
-		refsSecrets, err := util.CELExpressionReferencesFields(config.celFilter, resourceSecretCelNames, resourceCelEnvOptions...)
+		refsSecrets, err := util.CELExpressionReferencesFields(config.celFilter, resourceColumns.SecretCelNames(), resourceColumns.CelEnvOptions()...)
 		if err != nil {
 			return fmt.Errorf("parsing filter: %w", err)
 		}
@@ -97,7 +97,7 @@ func ResourceList(cmd *cobra.Command, args []string) error {
 
 		// Apply CEL filter on already-decrypted data
 		if config.celFilter != "" {
-			decrypted, err = filterDecryptedResources(decrypted, config.celFilter, ctx)
+			decrypted, err = resourceColumns.Filter(ctx, decrypted, config.celFilter)
 			if err != nil {
 				return err
 			}
@@ -313,13 +313,7 @@ func printTableResources(
 ) error {
 	// Input is normalized by parseResourceListFlags; a miss in the resolver is a
 	// defensive guard against a future caller that skips that step.
-	return util.PrintTable(columns, decrypted, func(d decryptedResource, col string) (string, bool) {
-		spec, ok := resourceColumnsByName[col]
-		if !ok {
-			return "", false
-		}
-		return spec.tableValue(d), true
-	})
+	return util.PrintTable(columns, decrypted, resourceColumns.TableValue)
 }
 
 func parseResourceListFlags(cmd *cobra.Command) (*resourceListConfig, error) {
@@ -344,9 +338,9 @@ func parseResourceListFlags(cmd *cobra.Command) (*resourceListConfig, error) {
 		return nil, err
 	}
 	if len(columns) == 0 {
-		return nil, util.NoColumnsError(resourceColumnResolver.Canonical())
+		return nil, util.NoColumnsError(resourceColumns.Resolver().Canonical())
 	}
-	columns, err = resourceColumnResolver.NormalizeAll(columns)
+	columns, err = resourceColumns.Resolver().NormalizeAll(columns)
 	if err != nil {
 		return nil, err
 	}

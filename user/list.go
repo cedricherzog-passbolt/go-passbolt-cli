@@ -25,7 +25,7 @@ func init() {
 	flags.StringArrayP("resource", "r", []string{}, "Users that have access to resources")
 	flags.StringP("search", "s", "", "Search for Users")
 	flags.BoolP("admin", "a", false, "Only show Admins")
-	flags.StringArrayP("column", "c", userDefaultTableColumns, "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(userColumnResolver.Canonical(), ", ")+"\nLegacy PascalCase column names (ID, FirstName, ...) remain accepted for backwards compatibility.")
+	flags.StringArrayP("column", "c", userColumns.DefaultTableColumns(), "Columns to return (default list only for table format; JSON format includes all fields by default).\nPossible Columns: "+strings.Join(userColumns.Resolver().Canonical(), ", ")+"\nLegacy PascalCase column names (ID, FirstName, ...) remain accepted for backwards compatibility.")
 }
 
 type userListConfig struct {
@@ -56,7 +56,7 @@ func UserList(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("listing User: %w", err)
 		}
 
-		users, err = filterUsers(&users, config.celFilter, ctx)
+		users, err = userColumns.Filter(ctx, users, config.celFilter)
 		if err != nil {
 			return err
 		}
@@ -96,13 +96,7 @@ func printJSONUsers(users []api.User, isColumnsChanged bool, columns []string) e
 func printTableUsers(columns []string, users []api.User) error {
 	// Input is normalized by parseUserListFlags; a miss in the resolver is a
 	// defensive guard against a future caller that skips that step.
-	return util.PrintTable(columns, users, func(user api.User, col string) (string, bool) {
-		spec, ok := userColumnsByName[col]
-		if !ok {
-			return "", false
-		}
-		return spec.tableValue(user), true
-	})
+	return util.PrintTable(columns, users, userColumns.TableValue)
 }
 
 func parseUserListFlags(cmd *cobra.Command) (*userListConfig, error) {
@@ -127,9 +121,9 @@ func parseUserListFlags(cmd *cobra.Command) (*userListConfig, error) {
 		return nil, err
 	}
 	if len(columns) == 0 {
-		return nil, util.NoColumnsError(userColumnResolver.Canonical())
+		return nil, util.NoColumnsError(userColumns.Resolver().Canonical())
 	}
-	columns, err = userColumnResolver.NormalizeAll(columns)
+	columns, err = userColumns.Resolver().NormalizeAll(columns)
 	if err != nil {
 		return nil, err
 	}

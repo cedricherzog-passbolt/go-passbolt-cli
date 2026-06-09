@@ -45,7 +45,7 @@ func TestResourceColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 		{"resourcetypeid", "resource_type_id"},
 	}
 	for _, c := range cases {
-		got, err := resourceColumnResolver.Normalize(c.input)
+		got, err := resourceColumns.Resolver().Normalize(c.input)
 		if err != nil {
 			t.Errorf("Normalize(%q) error: %v", c.input, err)
 			continue
@@ -57,14 +57,14 @@ func TestResourceColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 }
 
 func TestResourceColumnResolver_RejectsUnknown(t *testing.T) {
-	if _, err := resourceColumnResolver.Normalize("nope"); err == nil {
+	if _, err := resourceColumns.Resolver().Normalize("nope"); err == nil {
 		t.Fatal("expected error for unknown column 'nope'")
 	}
 }
 
 func TestResourceDefaultTableColumns_AreCanonical(t *testing.T) {
-	for _, col := range resourceDefaultTableColumns {
-		if _, ok := resourceColumnsByName[col]; !ok {
+	for _, col := range resourceColumns.DefaultTableColumns() {
+		if canon, err := resourceColumns.Resolver().Normalize(col); err != nil || canon != col {
 			t.Errorf("default table column %q is not canonical", col)
 		}
 	}
@@ -83,8 +83,8 @@ func TestColumnsRequireSecrets(t *testing.T) {
 		{"metadata alone does not trigger", []string{"id", "metadata"}, false},
 	}
 	for _, c := range cases {
-		if got := columnsRequireSecrets(c.columns); got != c.want {
-			t.Errorf("%s: columnsRequireSecrets(%v) = %v, want %v", c.name, c.columns, got, c.want)
+		if got := resourceColumns.RequiresSecrets(c.columns); got != c.want {
+			t.Errorf("%s: RequiresSecrets(%v) = %v, want %v", c.name, c.columns, got, c.want)
 		}
 	}
 }
@@ -113,20 +113,21 @@ func TestMarshalMapForTable(t *testing.T) {
 }
 
 func TestResourceSecretCelNames_ContainsCanonicalAndAliases(t *testing.T) {
-	have := make(map[string]bool, len(resourceSecretCelNames))
-	for _, n := range resourceSecretCelNames {
+	secretNames := resourceColumns.SecretCelNames()
+	have := make(map[string]bool, len(secretNames))
+	for _, n := range secretNames {
 		have[n] = true
 	}
 	// Canonical names — referenced by user filter expressions in snake_case.
 	for _, want := range []string{"password", "description", "secret"} {
 		if !have[want] {
-			t.Errorf("missing canonical CEL name %q in secret list (saw %v)", want, resourceSecretCelNames)
+			t.Errorf("missing canonical CEL name %q in secret list (saw %v)", want, secretNames)
 		}
 	}
 	// PascalCase aliases — referenced by existing user scripts.
 	for _, want := range []string{"Password", "Description", "Secret"} {
 		if !have[want] {
-			t.Errorf("missing PascalCase CEL alias %q in secret list (saw %v)", want, resourceSecretCelNames)
+			t.Errorf("missing PascalCase CEL alias %q in secret list (saw %v)", want, secretNames)
 		}
 	}
 }
