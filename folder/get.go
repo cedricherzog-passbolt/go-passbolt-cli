@@ -76,7 +76,7 @@ func FolderPermission(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if len(columns) == 0 {
-		return fmt.Errorf("you need to specify at least one column to return")
+		return util.ErrNoColumns
 	}
 	jsonOutput, err := cmd.Flags().GetBool("json")
 	if err != nil {
