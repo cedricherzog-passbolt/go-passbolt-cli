@@ -22,7 +22,7 @@ func TestFolderColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 		{"Personal", "personal"},
 	}
 	for _, c := range cases {
-		got, err := folderColumnResolver.Normalize(c.input)
+		got, err := folderColumns.Resolver().Normalize(c.input)
 		if err != nil {
 			t.Errorf("Normalize(%q) error: %v", c.input, err)
 			continue
@@ -34,14 +34,14 @@ func TestFolderColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 }
 
 func TestFolderColumnResolver_RejectsUnknown(t *testing.T) {
-	if _, err := folderColumnResolver.Normalize("nope"); err == nil {
+	if _, err := folderColumns.Resolver().Normalize("nope"); err == nil {
 		t.Fatal("expected error for unknown column 'nope'")
 	}
 }
 
 func TestFolderDefaultTableColumns_AreCanonical(t *testing.T) {
-	for _, col := range folderDefaultTableColumns {
-		if _, ok := folderColumnsByName[col]; !ok {
+	for _, col := range folderColumns.DefaultTableColumns() {
+		if canon, err := folderColumns.Resolver().Normalize(col); err != nil || canon != col {
 			t.Errorf("default table column %q is not canonical", col)
 		}
 	}

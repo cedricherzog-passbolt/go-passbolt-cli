@@ -23,7 +23,7 @@ func TestGroupColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 		{"usercount", "user_count"},
 	}
 	for _, c := range cases {
-		got, err := groupColumnResolver.Normalize(c.input)
+		got, err := groupColumns.Resolver().Normalize(c.input)
 		if err != nil {
 			t.Errorf("Normalize(%q) error: %v", c.input, err)
 			continue
@@ -35,14 +35,14 @@ func TestGroupColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 }
 
 func TestGroupColumnResolver_RejectsUnknown(t *testing.T) {
-	if _, err := groupColumnResolver.Normalize("nope"); err == nil {
+	if _, err := groupColumns.Resolver().Normalize("nope"); err == nil {
 		t.Fatal("expected error for unknown column 'nope'")
 	}
 }
 
 func TestGroupDefaultTableColumns_AreCanonical(t *testing.T) {
-	for _, col := range groupDefaultTableColumns {
-		if _, ok := groupColumnsByName[col]; !ok {
+	for _, col := range groupColumns.DefaultTableColumns() {
+		if canon, err := groupColumns.Resolver().Normalize(col); err != nil || canon != col {
 			t.Errorf("default table column %q is not canonical", col)
 		}
 	}

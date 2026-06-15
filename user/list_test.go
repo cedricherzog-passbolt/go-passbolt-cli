@@ -18,7 +18,7 @@ func newTestUserListCmd() *cobra.Command {
 	f.StringArrayP("resource", "r", []string{}, "")
 	f.StringP("search", "s", "", "")
 	f.BoolP("admin", "a", false, "")
-	f.StringArrayP("column", "c", userDefaultTableColumns, "")
+	f.StringArrayP("column", "c", userColumns.DefaultTableColumns(), "")
 	f.BoolP("json", "j", false, "")
 	f.String("filter", "", "")
 	return c

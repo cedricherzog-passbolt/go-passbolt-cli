@@ -36,7 +36,7 @@ func TestUserColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 		{"Disabled", "disabled"},
 	}
 	for _, c := range cases {
-		got, err := userColumnResolver.Normalize(c.input)
+		got, err := userColumns.Resolver().Normalize(c.input)
 		if err != nil {
 			t.Errorf("Normalize(%q) error: %v", c.input, err)
 			continue
@@ -48,14 +48,14 @@ func TestUserColumnResolver_AcceptsCanonicalAndAliases(t *testing.T) {
 }
 
 func TestUserColumnResolver_RejectsUnknown(t *testing.T) {
-	if _, err := userColumnResolver.Normalize("nope"); err == nil {
+	if _, err := userColumns.Resolver().Normalize("nope"); err == nil {
 		t.Fatal("expected error for unknown column 'nope'")
 	}
 }
 
 func TestUserDefaultTableColumns_AreCanonical(t *testing.T) {
-	for _, col := range userDefaultTableColumns {
-		if _, ok := userColumnsByName[col]; !ok {
+	for _, col := range userColumns.DefaultTableColumns() {
+		if canon, err := userColumns.Resolver().Normalize(col); err != nil || canon != col {
 			t.Errorf("default table column %q is not canonical", col)
 		}
 	}
