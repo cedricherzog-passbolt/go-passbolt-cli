@@ -1,9 +1,11 @@
 package resource
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/passbolt/go-passbolt-cli/util"
+	"github.com/passbolt/go-passbolt/api"
 	"github.com/spf13/cobra"
 )
 
@@ -16,28 +18,18 @@ var ResourceDeleteCmd = &cobra.Command{
 }
 
 func ResourceDelete(cmd *cobra.Command, args []string) error {
-	resourceID, err := cmd.Flags().GetString("id")
+	id, err := cmd.Flags().GetString("id")
 	if err != nil {
 		return err
 	}
-
-	if resourceID == "" {
+	if id == "" {
 		return fmt.Errorf("no ID to Delete Provided")
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
-
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
-
-	err = client.DeleteResource(ctx, resourceID)
-	if err != nil {
-		return fmt.Errorf("deleting Resource: %w", err)
-	}
-	return nil
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		if err := client.DeleteResource(ctx, id); err != nil {
+			return fmt.Errorf("deleting Resource: %w", err)
+		}
+		return nil
+	})
 }

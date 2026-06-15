@@ -1,9 +1,11 @@
 package resource
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/passbolt/go-passbolt-cli/util"
+	"github.com/passbolt/go-passbolt/api"
 	"github.com/passbolt/go-passbolt/helper"
 	"github.com/spf13/cobra"
 )
@@ -69,65 +71,58 @@ func ResourceUpdate(cmd *cobra.Command, args []string) error {
 
 	useGeneric := len(fields) > 0 || len(secretFields) > 0
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		var err error
+		if useGeneric {
+			// Generic path: use UpdateResourceGeneric with field maps
+			metadataUpdates := map[string]any{}
+			secretUpdates := map[string]any{}
 
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
-
-	if useGeneric {
-		// Generic path: use UpdateResourceGeneric with field maps
-		metadataUpdates := map[string]any{}
-		secretUpdates := map[string]any{}
-
-		if name != "" {
-			metadataUpdates["name"] = name
-		}
-		if username != "" {
-			metadataUpdates["username"] = username
-		}
-		if uri != "" {
-			metadataUpdates["uri"] = uri
-		}
-		if description != "" {
-			metadataUpdates["description"] = description
-		}
-		if password != "" {
-			secretUpdates["password"] = password
-		}
-
-		for _, f := range fields {
-			k, v, parseErr := parseKeyValue(f)
-			if parseErr != nil {
-				return fmt.Errorf("invalid --field: %w", parseErr)
+			if name != "" {
+				metadataUpdates["name"] = name
 			}
-			metadataUpdates[k] = v
-		}
-		for _, f := range secretFields {
-			k, v, parseErr := parseKeyValue(f)
-			if parseErr != nil {
-				return fmt.Errorf("invalid --secret-field: %w", parseErr)
+			if username != "" {
+				metadataUpdates["username"] = username
 			}
-			secretUpdates[k] = v
+			if uri != "" {
+				metadataUpdates["uri"] = uri
+			}
+			if description != "" {
+				metadataUpdates["description"] = description
+			}
+			if password != "" {
+				secretUpdates["password"] = password
+			}
+
+			for _, f := range fields {
+				k, v, parseErr := parseKeyValue(f)
+				if parseErr != nil {
+					return fmt.Errorf("invalid --field: %w", parseErr)
+				}
+				metadataUpdates[k] = v
+			}
+			for _, f := range secretFields {
+				k, v, parseErr := parseKeyValue(f)
+				if parseErr != nil {
+					return fmt.Errorf("invalid --secret-field: %w", parseErr)
+				}
+				secretUpdates[k] = v
+			}
+
+			err = helper.UpdateResourceGeneric(ctx, client, id, metadataUpdates, secretUpdates)
+		} else {
+			err = helper.UpdateResource(ctx, client, id, name, username, uri, password, description)
 		}
 
-		err = helper.UpdateResourceGeneric(ctx, client, id, metadataUpdates, secretUpdates)
-	} else {
-		err = helper.UpdateResource(ctx, client, id, name, username, uri, password, description)
-	}
-
-	if err != nil {
-		return fmt.Errorf("updating resource: %w", err)
-	}
-
-	if expiry != "" {
-		if err := SetResourceExpiry(ctx, client, id, expiry); err != nil {
-			return err
+		if err != nil {
+			return fmt.Errorf("updating resource: %w", err)
 		}
-	}
-	return nil
+
+		if expiry != "" {
+			if err := SetResourceExpiry(ctx, client, id, expiry); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

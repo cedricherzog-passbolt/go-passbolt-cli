@@ -1,11 +1,12 @@
 package user
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 
 	"al.essio.dev/pkg/shellescape"
 	"github.com/passbolt/go-passbolt-cli/util"
+	"github.com/passbolt/go-passbolt/api"
 	"github.com/passbolt/go-passbolt/helper"
 	"github.com/spf13/cobra"
 )
@@ -34,40 +35,27 @@ func UserGet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
-
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
-
-	role, username, firstname, lastname, err := helper.GetUser(
-		ctx,
-		client,
-		id,
-	)
-	if err != nil {
-		return fmt.Errorf("getting User: %w", err)
-	}
-	if jsonOutput {
-		jsonUser, err := json.MarshalIndent(UserJSONOutput{
-			Username:  &username,
-			FirstName: &firstname,
-			LastName:  &lastname,
-			Role:      &role,
-		}, "", "  ")
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		role, username, firstname, lastname, err := helper.GetUser(
+			ctx,
+			client,
+			id,
+		)
 		if err != nil {
-			return err
+			return fmt.Errorf("getting User: %w", err)
 		}
-		fmt.Println(string(jsonUser))
-	} else {
+		if jsonOutput {
+			return util.PrintJSON(UserJSONOutput{
+				Username:  &username,
+				FirstName: &firstname,
+				LastName:  &lastname,
+				Role:      &role,
+			})
+		}
 		fmt.Printf("Username: %v\n", shellescape.StripUnsafe(username))
 		fmt.Printf("FirstName: %v\n", shellescape.StripUnsafe(firstname))
 		fmt.Printf("LastName: %v\n", shellescape.StripUnsafe(lastname))
 		fmt.Printf("Role: %v\n", shellescape.StripUnsafe(role))
-	}
-	return nil
+		return nil
+	})
 }

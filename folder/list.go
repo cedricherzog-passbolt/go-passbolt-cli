@@ -1,15 +1,13 @@
 package folder
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/passbolt/go-passbolt-cli/util"
 	"github.com/passbolt/go-passbolt/api"
 	"github.com/spf13/cobra"
-
-	"github.com/pterm/pterm"
 )
 
 // FolderListCmd Lists a Passbolt Folder
@@ -44,34 +42,26 @@ func FolderList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		folders, err := client.GetFolders(ctx, &api.GetFoldersOptions{
+			FilterHasParent: config.parentFolders,
+			FilterSearch:    config.search,
+		})
+		if err != nil {
+			return fmt.Errorf("listing Folder: %w", err)
+		}
 
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
+		folders, err = filterFolders(&folders, config.celFilter, ctx)
+		if err != nil {
+			return err
+		}
 
-	folders, err := client.GetFolders(ctx, &api.GetFoldersOptions{
-		FilterHasParent: config.parentFolders,
-		FilterSearch:    config.search,
+		if config.jsonOutput {
+			return printJSONFolders(folders, config.columnsChanged, config.columns)
+		}
+
+		return printTableFolders(config.columns, folders)
 	})
-	if err != nil {
-		return fmt.Errorf("listing Folder: %w", err)
-	}
-
-	folders, err = filterFolders(&folders, config.celFilter, ctx)
-	if err != nil {
-		return err
-	}
-
-	if config.jsonOutput {
-		return printJSONFolders(folders, config.columnsChanged, config.columns)
-	}
-
-	return printTableFolders(config.columns, folders)
 }
 
 func printJSONFolders(folders []api.Folder, isColumnsChanged bool, columns []string) error {
@@ -88,58 +78,22 @@ func printJSONFolders(folders []api.Folder, isColumnsChanged bool, columns []str
 	}
 
 	if isColumnsChanged {
-		filteredMap := make([]map[string]interface{}, len(outputFolders))
-		for i := range outputFolders {
-			filteredMap[i] = make(map[string]interface{})
-			data, _ := json.Marshal(outputFolders[i])
-			var folderMap map[string]interface{}
-			if err := json.Unmarshal(data, &folderMap); err != nil {
-				return fmt.Errorf("unmarshaling folder: %w", err)
-			}
-
-			for _, col := range columns {
-				if val, ok := folderMap[col]; ok {
-					filteredMap[i][col] = val
-				}
-			}
-		}
-
-		jsonFolders, err := json.MarshalIndent(filteredMap, "", "  ")
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(jsonFolders))
-		return nil
+		return util.PrintJSONColumnFiltered(outputFolders, columns)
 	}
 
-	jsonFolders, err := json.MarshalIndent(outputFolders, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(jsonFolders))
-	return nil
+	return util.PrintJSON(outputFolders)
 }
 
 func printTableFolders(columns []string, folders []api.Folder) error {
-	data := pterm.TableData{columns}
-
-	for _, folder := range folders {
-		entry := make([]string, len(columns))
-		for i, col := range columns {
-			// Input is normalized by parseFolderListFlags; a miss here is a
-			// defensive guard against a future caller that skips that step.
-			spec, ok := folderColumnsByName[col]
-			if !ok {
-				return fmt.Errorf("unknown column: %q", col)
-			}
-			entry[i] = spec.tableValue(folder)
+	// Input is normalized by parseFolderListFlags; a miss in the resolver is a
+	// defensive guard against a future caller that skips that step.
+	return util.PrintTable(columns, folders, func(folder api.Folder, col string) (string, bool) {
+		spec, ok := folderColumnsByName[col]
+		if !ok {
+			return "", false
 		}
-		data = append(data, entry)
-	}
-
-	pterm.DefaultTable.WithHasHeader().WithData(data).Render()
-	return nil
+		return spec.tableValue(folder), true
+	})
 }
 
 func parseFolderListFlags(cmd *cobra.Command) (*folderListConfig, error) {

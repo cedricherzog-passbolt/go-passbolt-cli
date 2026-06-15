@@ -1,9 +1,11 @@
 package folder
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/passbolt/go-passbolt-cli/util"
+	"github.com/passbolt/go-passbolt/api"
 	"github.com/passbolt/go-passbolt/helper"
 	"github.com/spf13/cobra"
 )
@@ -34,24 +36,15 @@ func FolderUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctx, cancel := util.GetContext()
-	defer cancel()
-
-	client, err := util.GetClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer util.SaveSessionKeysAndLogout(ctx, client)
-	cmd.SilenceUsage = true
-
-	err = helper.UpdateFolder(
-		ctx,
-		client,
-		id,
-		name,
-	)
-	if err != nil {
-		return fmt.Errorf("updating Folder: %w", err)
-	}
-	return nil
+	return util.WithClient(cmd, func(ctx context.Context, client *api.Client) error {
+		if err := helper.UpdateFolder(
+			ctx,
+			client,
+			id,
+			name,
+		); err != nil {
+			return fmt.Errorf("updating Folder: %w", err)
+		}
+		return nil
+	})
 }
