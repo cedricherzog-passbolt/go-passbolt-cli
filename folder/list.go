@@ -110,7 +110,7 @@ func parseFolderListFlags(cmd *cobra.Command) (*folderListConfig, error) {
 		return nil, err
 	}
 	if len(columns) == 0 {
-		return nil, util.ErrNoColumns
+		return nil, util.NoColumnsError(folderColumnResolver.Canonical())
 	}
 	columns, err = folderColumnResolver.NormalizeAll(columns)
 	if err != nil {
