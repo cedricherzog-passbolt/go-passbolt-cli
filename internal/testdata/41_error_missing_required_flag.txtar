@@ -1,0 +1,6 @@
+# Negative: a command with a required flag omitted must fail with a clear
+# message naming the flag, and exit non-zero (Cobra validates before RunE, so
+# no server call happens).
+
+! pb get resource
+stderr 'required flag.*id'
