@@ -110,6 +110,101 @@ func TestPrintJSONUsers_PopulatesLifecycleFields(t *testing.T) {
 	}
 }
 
+// Pins the JSON struct contract for the get path (UserGet builds this same
+// subset inline). NOTE: tests the struct's omitempty/tag behavior, not the
+// command — username/first_name/last_name/role present, lifecycle flags
+// (non-omitempty) still appear as false, id/timestamps omitted. End-to-end
+// output is covered by the integration get-roundtrip scripts.
+func TestUserGetJSONContract(t *testing.T) {
+	out := UserJSONOutput{
+		Username:  ptr("ada@passbolt.com"),
+		FirstName: ptr("Ada"),
+		LastName:  ptr("Lovelace"),
+		Role:      ptr("user"),
+	}
+	m := marshalToMap(t, out)
+	assertKeySet(t, m, map[string]bool{
+		"username": true, "first_name": true, "last_name": true, "role": true,
+		"active": true, "deleted": true, "disabled": true,
+	})
+	for _, k := range []string{"id", "created_timestamp", "modified_timestamp"} {
+		if _, ok := m[k]; ok {
+			t.Errorf("key %q should be omitted in get JSON", k)
+		}
+	}
+}
+
+func TestPrintJSONUsers_EscapesSpecialChars(t *testing.T) {
+	weird := "a\"b\\c\nd<eé"
+	users := []api.User{
+		{
+			ID:       "u1",
+			Username: "ada@passbolt.com",
+			Profile:  &api.Profile{FirstName: weird, LastName: "Lovelace"},
+			Role:     &api.Role{Name: "user"},
+			Created:  &api.Time{},
+			Modified: &api.Time{},
+		},
+	}
+	out := captureStdout(t, func() {
+		if err := printJSONUsers(users, false, nil); err != nil {
+			t.Fatalf("printJSONUsers: %v", err)
+		}
+	})
+	var got []map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("output is not valid JSON: %v\nraw:\n%s", err, out)
+	}
+	if got[0]["first_name"] != weird {
+		t.Errorf("first_name round-trip = %q, want %q", got[0]["first_name"], weird)
+	}
+}
+
+func TestPrintJSONUsers_EmptyListIsArray(t *testing.T) {
+	out := captureStdout(t, func() {
+		if err := printJSONUsers(nil, false, nil); err != nil {
+			t.Fatalf("printJSONUsers: %v", err)
+		}
+	})
+	if strings.TrimSpace(out) != "[]" {
+		t.Errorf("empty list output = %q, want []", strings.TrimSpace(out))
+	}
+	var got []map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("not valid JSON: %v", err)
+	}
+	if got == nil {
+		t.Error("empty list should decode to an empty array, not null")
+	}
+}
+
+func marshalToMap(t *testing.T, v any) map[string]any {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	return m
+}
+
+func assertKeySet(t *testing.T, m map[string]any, want map[string]bool) {
+	t.Helper()
+	for k := range m {
+		if !want[k] {
+			t.Errorf("unexpected key %q in JSON output", k)
+		}
+	}
+	for k := range want {
+		if _, ok := m[k]; !ok {
+			t.Errorf("missing key %q in JSON output", k)
+		}
+	}
+}
+
 func ptr[T any](v T) *T { return &v }
 
 // captureStdout swaps os.Stdout for a pipe, runs fn, restores stdout, and

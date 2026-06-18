@@ -85,6 +85,103 @@ func TestPrintJSONGroups_ColumnFilterRestrictsKeys(t *testing.T) {
 	}
 }
 
+// Pins the JSON struct contract for the get path (GroupGet builds this same
+// shape inline). NOTE: tests the struct's omitempty/tag behavior, not the
+// command — name + nested users array present, deleted/user_count
+// (non-omitempty) still appear, id/timestamps omitted. End-to-end output is
+// covered by the integration get-roundtrip scripts.
+func TestGroupGetJSONContract(t *testing.T) {
+	out := GroupJSONOutput{
+		Name: ptr("eng"),
+		Users: []GroupUserMembershipJSONOutput{
+			{ID: ptr("u1"), Username: ptr("ada@x"), FirstName: ptr("Ada"), LastName: ptr("L"), IsGroupManager: ptr(true)},
+		},
+	}
+	m := marshalToMap(t, out)
+	assertKeySet(t, m, map[string]bool{"name": true, "users": true, "deleted": true, "user_count": true})
+	for _, k := range []string{"id", "created_timestamp", "modified_timestamp"} {
+		if _, ok := m[k]; ok {
+			t.Errorf("key %q should be omitted in get JSON", k)
+		}
+	}
+	users, ok := m["users"].([]any)
+	if !ok || len(users) != 1 {
+		t.Fatalf("users = %T (%v), want array of 1", m["users"], m["users"])
+	}
+	member, ok := users[0].(map[string]any)
+	if !ok {
+		t.Fatalf("users[0] = %T, want object", users[0])
+	}
+	if _, ok := member["is_group_manager"].(bool); !ok {
+		t.Errorf("is_group_manager = %T, want bool", member["is_group_manager"])
+	}
+	if member["username"] != "ada@x" {
+		t.Errorf("username = %v, want ada@x", member["username"])
+	}
+}
+
+func TestPrintJSONGroups_EscapesSpecialChars(t *testing.T) {
+	weird := "a\"b\\c\nd<eé"
+	groups := []api.Group{{ID: "g1", Name: weird, Created: &api.Time{}, Modified: &api.Time{}}}
+	out := captureStdout(t, func() {
+		if err := printJSONGroups(groups, false, nil); err != nil {
+			t.Fatalf("printJSONGroups: %v", err)
+		}
+	})
+	var got []map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("output is not valid JSON: %v\nraw:\n%s", err, out)
+	}
+	if got[0]["name"] != weird {
+		t.Errorf("name round-trip = %q, want %q", got[0]["name"], weird)
+	}
+}
+
+func TestPrintJSONGroups_EmptyListIsArray(t *testing.T) {
+	out := captureStdout(t, func() {
+		if err := printJSONGroups(nil, false, nil); err != nil {
+			t.Fatalf("printJSONGroups: %v", err)
+		}
+	})
+	if strings.TrimSpace(out) != "[]" {
+		t.Errorf("empty list output = %q, want []", strings.TrimSpace(out))
+	}
+	var got []map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("not valid JSON: %v", err)
+	}
+	if got == nil {
+		t.Error("empty list should decode to an empty array, not null")
+	}
+}
+
+func marshalToMap(t *testing.T, v any) map[string]any {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	return m
+}
+
+func assertKeySet(t *testing.T, m map[string]any, want map[string]bool) {
+	t.Helper()
+	for k := range m {
+		if !want[k] {
+			t.Errorf("unexpected key %q in JSON output", k)
+		}
+	}
+	for k := range want {
+		if _, ok := m[k]; !ok {
+			t.Errorf("missing key %q in JSON output", k)
+		}
+	}
+}
+
 func ptr[T any](v T) *T { return &v }
 
 // captureStdout swaps os.Stdout for a pipe, runs fn, restores stdout, and
