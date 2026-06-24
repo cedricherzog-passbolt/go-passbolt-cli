@@ -1,11 +1,25 @@
 package util
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/passbolt/go-passbolt/api"
 )
+
+// PrintPermissionTable must reject an unknown column with a clear error rather
+// than silently rendering a blank cell.
+func TestPrintPermissionTable_UnknownColumn(t *testing.T) {
+	// One row so the per-column validation loop runs.
+	err := PrintPermissionTable([]string{"NoSuchColumn"}, []api.Permission{{}})
+	if err == nil {
+		t.Fatal("expected error for unknown column")
+	}
+	if !strings.Contains(err.Error(), "unknown Column") {
+		t.Errorf("error %q should mention 'unknown Column'", err.Error())
+	}
+}
 
 func TestPermissionCell(t *testing.T) {
 	created := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)

@@ -1,0 +1,7 @@
+# Negative: getting a resource by a well-formed but nonexistent UUID must fail
+# cleanly (API 4xx) and exit non-zero. Complements 32 (folder not-found).
+
+uuid BOGUS
+
+! pb get resource --id $BOGUS --json
+stderr 'getting resource|404|not exist|does not exist'

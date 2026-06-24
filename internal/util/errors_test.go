@@ -83,3 +83,55 @@ func TestExplainAPIError(t *testing.T) {
 		t.Errorf("expected op prefix, got %q", wrapped.Error())
 	}
 }
+
+// TestAPIStatusHint covers every branch of the status→hint mapping, documenting
+// the exact user-facing guidance per code. "" means no hint applies.
+func TestAPIStatusHint(t *testing.T) {
+	cases := []struct {
+		code int
+		want string // substring; "" asserts an empty hint
+	}{
+		{401, "authentication failed"},
+		{403, "access denied"},
+		{404, "not found"},
+		{500, "internal error"},
+		{503, "internal error"},
+		{400, ""},
+		{422, ""},
+	}
+	for _, c := range cases {
+		got := apiStatusHint(c.code)
+		if c.want == "" {
+			if got != "" {
+				t.Errorf("apiStatusHint(%d) = %q, want empty", c.code, got)
+			}
+			continue
+		}
+		if !strings.Contains(got, c.want) {
+			t.Errorf("apiStatusHint(%d) = %q, want it to contain %q", c.code, got, c.want)
+		}
+	}
+}
+
+// TestExplainAPIError_NoHintStatus verifies that an API error with a status that
+// has no hint (400) is only op-wrapped — no spurious hint text — while the
+// *api.APIError stays recoverable via errors.As.
+func TestExplainAPIError_NoHintStatus(t *testing.T) {
+	apiErr := &api.APIError{StatusCode: 400, Message: "Bad Request"}
+	err := ExplainAPIError("doing thing", apiErr)
+
+	if !strings.HasPrefix(err.Error(), "doing thing: ") {
+		t.Errorf("expected op prefix, got %q", err.Error())
+	}
+	var got *api.APIError
+	if !errors.As(err, &got) {
+		t.Error("ExplainAPIError must preserve the *api.APIError in the chain")
+	}
+	// The message should be just the op wrap around the API error, with no hint
+	// phrasing injected.
+	if strings.Contains(err.Error(), "authentication failed") ||
+		strings.Contains(err.Error(), "access denied") ||
+		strings.Contains(err.Error(), "internal error") {
+		t.Errorf("no hint should be added for status 400, got %q", err.Error())
+	}
+}

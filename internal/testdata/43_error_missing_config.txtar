@@ -1,0 +1,6 @@
+# Negative: with no config and no serverAddress, the CLI must fail with a clear
+# message and exit non-zero. Uses the raw `passbolt` directive (no auto-config)
+# so serverAddress is genuinely unset.
+
+! passbolt list resource
+stderr 'serverAddress is not defined'
