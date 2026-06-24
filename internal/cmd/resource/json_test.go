@@ -116,6 +116,109 @@ func TestPrintJSONResources_ColumnFilterRestrictsKeys(t *testing.T) {
 	}
 }
 
+// Pins the JSON struct contract for the get path (ResourceGet builds this same
+// subset inline). NOTE: this tests the struct's omitempty/tag behavior, not the
+// command itself — it asserts id/timestamps are omitted while deleted/expired
+// (non-omitempty) still appear as false. End-to-end command output is covered by
+// the integration get-roundtrip scripts.
+func TestResourceGetJSONContract(t *testing.T) {
+	out := ResourceJSONOutput{
+		FolderParentID: ptr("f1"),
+		Name:           ptr("server"),
+		Username:       ptr("admin"),
+		URI:            ptr("https://example.com"),
+		Password:       ptr("secret"),
+		Description:    ptr("d"),
+	}
+	m := marshalToMap(t, out)
+
+	want := map[string]bool{
+		"folder_parent_id": true, "name": true, "username": true,
+		"uri": true, "password": true, "description": true,
+		"deleted": true, "expired": true,
+	}
+	assertKeySet(t, m, want)
+	for _, k := range []string{"id", "created_timestamp", "modified_timestamp", "resource_type_id", "metadata", "secret", "expired_at"} {
+		if _, ok := m[k]; ok {
+			t.Errorf("key %q should be omitted in get JSON", k)
+		}
+	}
+}
+
+// Special characters in a field must be JSON-escaped so the output stays valid
+// and round-trips to the exact original value.
+func TestPrintJSONResources_EscapesSpecialChars(t *testing.T) {
+	weird := "a\"b\\c\nd<eé"
+	decrypted := []decryptedResource{
+		{
+			resource: api.Resource{ID: "r1", Created: &api.Time{}, Modified: &api.Time{}},
+			name:     weird,
+		},
+	}
+	out := captureStdout(t, func() {
+		if err := printJSONResources(decrypted, false, nil); err != nil {
+			t.Fatalf("printJSONResources: %v", err)
+		}
+	})
+	var got []map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("output is not valid JSON: %v\nraw:\n%s", err, out)
+	}
+	if got[0]["name"] != weird {
+		t.Errorf("name round-trip = %q, want %q", got[0]["name"], weird)
+	}
+}
+
+// An empty result set must serialize to [] (not null) so array consumers (jq)
+// don't break.
+func TestPrintJSONResources_EmptyListIsArray(t *testing.T) {
+	out := captureStdout(t, func() {
+		if err := printJSONResources(nil, false, nil); err != nil {
+			t.Fatalf("printJSONResources: %v", err)
+		}
+	})
+	if strings.TrimSpace(out) != "[]" {
+		t.Errorf("empty list output = %q, want []", strings.TrimSpace(out))
+	}
+	var got []map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("not valid JSON: %v", err)
+	}
+	if got == nil {
+		t.Error("empty list should decode to an empty array, not null")
+	}
+}
+
+// marshalToMap marshals v and decodes it into a generic map so tests can assert
+// key presence and JSON value types.
+func marshalToMap(t *testing.T, v any) map[string]any {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	return m
+}
+
+// assertKeySet fails if m has any key outside want, or is missing any key in want.
+func assertKeySet(t *testing.T, m map[string]any, want map[string]bool) {
+	t.Helper()
+	for k := range m {
+		if !want[k] {
+			t.Errorf("unexpected key %q in JSON output", k)
+		}
+	}
+	for k := range want {
+		if _, ok := m[k]; !ok {
+			t.Errorf("missing key %q in JSON output", k)
+		}
+	}
+}
+
 func ptr[T any](v T) *T { return &v }
 
 // captureStdout swaps os.Stdout for a pipe, runs fn, restores stdout, and
