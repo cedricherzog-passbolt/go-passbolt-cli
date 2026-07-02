@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/passbolt/go-passbolt-cli/cmd"
+	"github.com/passbolt/go-passbolt-cli/internal/cmd"
 )
 
 func main() {

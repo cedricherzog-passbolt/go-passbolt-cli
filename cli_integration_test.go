@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/passbolt/go-passbolt-cli/cmd"
+	"github.com/passbolt/go-passbolt-cli/internal/cmd"
 	"github.com/passbolt/go-passbolt-cli/internal/testenv"
 	"github.com/rogpeppe/go-internal/testscript"
 )

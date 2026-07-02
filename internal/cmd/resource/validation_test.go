@@ -1,0 +1,38 @@
+package resource
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/spf13/cobra"
+)
+
+// Required flags are enforced by Cobra's ValidateRequiredFlags, which runs
+// before RunE (so this never reaches the network). These tests guard against a
+// MarkFlagRequired call being dropped, which would silently accept empty IDs.
+func TestResourceRequiredFlags(t *testing.T) {
+	cases := []struct {
+		name string
+		cmd  *cobra.Command
+		want []string
+	}{
+		{"get", ResourceGetCmd, []string{"id"}},
+		{"permission", ResourcePermissionCmd, []string{"id"}},
+		{"update", ResourceUpdateCmd, []string{"id"}},
+		{"share", ResourceShareCmd, []string{"id", "type"}},
+		{"move", ResourceMoveCmd, []string{"id", "folderParentID"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := c.cmd.ValidateRequiredFlags()
+			if err == nil {
+				t.Fatalf("expected error for missing required flags %v", c.want)
+			}
+			for _, f := range c.want {
+				if !strings.Contains(err.Error(), f) {
+					t.Errorf("error %q should mention required flag %q", err.Error(), f)
+				}
+			}
+		})
+	}
+}

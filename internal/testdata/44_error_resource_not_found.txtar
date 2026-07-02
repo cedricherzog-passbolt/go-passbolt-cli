@@ -1,0 +1,11 @@
+# Negative: getting a resource by a well-formed but nonexistent UUID must fail
+# cleanly (API 4xx) and exit non-zero. Complements 32 (folder not-found).
+#
+# In --json mode the error must go to stderr only; stdout must stay empty so a
+# script piping stdout into a JSON parser never receives partial/garbage output.
+
+uuid BOGUS
+
+! pb get resource --id $BOGUS --json
+stderr 'getting resource|404|not exist|does not exist'
+! stdout '.'

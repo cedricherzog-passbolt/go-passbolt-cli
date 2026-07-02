@@ -1,0 +1,6 @@
+# Negative: an invalid --filter expression (references an unknown field) must
+# fail with a clear "parsing filter" message and exit non-zero. resource list
+# evaluates the filter before login, so this fails fast.
+
+! pb list resource --filter 'bogusfield == "x"'
+stderr 'parsing filter'
