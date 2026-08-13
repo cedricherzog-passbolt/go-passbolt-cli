@@ -4,8 +4,6 @@ A CLI tool to interact with [Passbolt](https://www.passbolt.com), an open source
 
 If you want to do something more complicated: [this Go module](https://github.com/passbolt/go-passbolt) to interact with Passbolt from Go might interest you.
 
-Disclaimer: This project is community driven and not associated with [Passbolt SA](https://www.passbolt.com/about).
-
 # Install
 
 **Homebrew**
