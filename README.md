@@ -4,6 +4,17 @@ A CLI tool to interact with [Passbolt](https://www.passbolt.com), an open source
 
 If you want to do something more complicated: [this Go module](https://github.com/passbolt/go-passbolt) to interact with Passbolt from Go might interest you.
 
+# API Compatibility
+
+The Go CLI is designed to work with the latest Passbolt API version, and we strongly recommend keeping your API up to date.
+
+> [!IMPORTANT]
+> Compatibility is currently tested with Passbolt API 5.6.1 and later. Older versions are unsupported and may not work.
+
+Support for 5.6.1 is not guaranteed indefinitely and the minimum supported API version may increase in future releases.
+
+In addition, users should also make sure they are running the latest version of the Go CLI. A current client stays compatible with supported older API versions, but an older client is not guaranteed to work against a newer API.
+
 # Install
 
 **Homebrew**
