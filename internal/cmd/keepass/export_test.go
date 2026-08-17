@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/tobischo/gokeepasslib/v3"
 )
 
 // encodeQuery is a copy of url.Values.Encode that uses %20 instead of '+' for
@@ -76,5 +78,72 @@ func TestEncodeQuery_DoesNotEscapeAmpersandOrEquals(t *testing.T) {
 	got := encodeQuery(v)
 	if got != "label=foo&bar=baz" {
 		t.Errorf("encodeQuery(%v) = %q, want label=foo&bar=baz (current behavior)", v, got)
+	}
+}
+
+// addCustomFields delegates the metadata/secret merge to
+// helper.ParseCustomFields; these tests cover the KDBX-specific part:
+// ordering, the Protected flag, and dropping fields KeePass cannot key.
+func TestAddCustomFields(t *testing.T) {
+	const idA = "11111111-1111-1111-1111-111111111111"
+	const idB = "22222222-2222-2222-2222-222222222222"
+
+	metadata := map[string]any{
+		"custom_fields": []any{
+			map[string]any{"id": idA, "metadata_key": "api-key"},
+			// Cleartext value: the secret half must still carry a (empty)
+			// secret_value, so this used to export as blank.
+			map[string]any{"id": idB, "metadata_key": "env", "metadata_value": "production"},
+		},
+	}
+	secretFields := map[string]any{
+		"custom_fields": []any{
+			map[string]any{"id": idA, "secret_value": "sk-secret-123"},
+			map[string]any{"id": idB, "secret_value": ""},
+		},
+	}
+
+	entry := gokeepasslib.NewEntry()
+	addCustomFields(&entry, metadata, secretFields)
+
+	want := []struct{ key, value string }{
+		{"api-key", "sk-secret-123"},
+		{"env", "production"},
+	}
+	if len(entry.Values) != len(want) {
+		t.Fatalf("got %d values, want %d: %+v", len(entry.Values), len(want), entry.Values)
+	}
+	for i, w := range want {
+		got := entry.Values[i]
+		if got.Key != w.key {
+			t.Errorf("value %d: key = %q, want %q (order must follow the metadata array)", i, got.Key, w.key)
+		}
+		if got.Value.Content != w.value {
+			t.Errorf("value %d (%s): content = %q, want %q", i, w.key, got.Value.Content, w.value)
+		}
+		if !got.Value.Protected.Bool {
+			t.Errorf("value %d (%s): not protected, want every custom field protected", i, w.key)
+		}
+	}
+}
+
+func TestAddCustomFields_SkipsUnnamedAndEmpty(t *testing.T) {
+	const idA = "11111111-1111-1111-1111-111111111111"
+
+	// A field with no name on either side cannot be keyed in KDBX.
+	entry := gokeepasslib.NewEntry()
+	addCustomFields(&entry,
+		map[string]any{"custom_fields": []any{map[string]any{"id": idA}}},
+		map[string]any{"custom_fields": []any{map[string]any{"id": idA, "secret_value": "v"}}},
+	)
+	if len(entry.Values) != 0 {
+		t.Errorf("unnamed field: got %+v, want no values", entry.Values)
+	}
+
+	// A resource without custom fields must add nothing.
+	entry = gokeepasslib.NewEntry()
+	addCustomFields(&entry, map[string]any{"name": "x"}, map[string]any{"password": "p"})
+	if len(entry.Values) != 0 {
+		t.Errorf("no custom fields: got %+v, want no values", entry.Values)
 	}
 }
