@@ -16,8 +16,8 @@ import (
 // omitempty-style stripping. Regression guard.
 func TestUserJSONOutput_LifecycleFieldsAlwaysEmitted(t *testing.T) {
 	out := UserJSONOutput{
-		ID:       ptr("u1"),
-		Username: ptr("ada@passbolt.com"),
+		ID:       new("u1"),
+		Username: new("ada@passbolt.com"),
 		Active:   false,
 		Deleted:  false,
 		Disabled: false,
@@ -117,10 +117,10 @@ func TestPrintJSONUsers_PopulatesLifecycleFields(t *testing.T) {
 // output is covered by the integration get-roundtrip scripts.
 func TestUserGetJSONContract(t *testing.T) {
 	out := UserJSONOutput{
-		Username:  ptr("ada@passbolt.com"),
-		FirstName: ptr("Ada"),
-		LastName:  ptr("Lovelace"),
-		Role:      ptr("user"),
+		Username:  new("ada@passbolt.com"),
+		FirstName: new("Ada"),
+		LastName:  new("Lovelace"),
+		Role:      new("user"),
 	}
 	m := marshalToMap(t, out)
 	assertKeySet(t, m, map[string]bool{
@@ -204,8 +204,6 @@ func assertKeySet(t *testing.T, m map[string]any, want map[string]bool) {
 		}
 	}
 }
-
-func ptr[T any](v T) *T { return &v }
 
 // captureStdout swaps os.Stdout for a pipe, runs fn, restores stdout, and
 // returns whatever fn wrote. Used to test functions that print directly

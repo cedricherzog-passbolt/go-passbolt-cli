@@ -131,7 +131,7 @@ func GetClient(ctx context.Context) (*api.Client, error) {
 			if challenge.Provider.TOTP == "" {
 				return http.Cookie{}, fmt.Errorf("server Provided no TOTP Provider")
 			}
-			for i := 0; i < 3; i++ {
+			for range 3 {
 				var code string
 				code, err := ReadPassword("Enter TOTP:")
 				if err != nil {

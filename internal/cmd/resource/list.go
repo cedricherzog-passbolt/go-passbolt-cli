@@ -113,12 +113,9 @@ func ResourceList(cmd *cobra.Command, args []string) error {
 
 func decryptResourcesParallel(ctx context.Context, client *api.Client, resources []api.Resource, needSecrets bool) ([]decryptedResource, error) {
 	// Use parallel decryption with worker pool
-	numWorkers := int(viper.GetUint("workers"))
-
-	// Limit Worker count to Resource count
-	if len(resources) < numWorkers {
-		numWorkers = len(resources)
-	}
+	numWorkers := min(
+		// Limit Worker count to Resource count
+		len(resources), int(viper.GetUint("workers")))
 
 	// Filter resources - only require secrets if we're fetching them
 	var validResources []api.Resource
@@ -142,9 +139,7 @@ func decryptResourcesParallel(ctx context.Context, client *api.Client, resources
 	// Start workers
 	var wg sync.WaitGroup
 	for w := 0; w < numWorkers; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for idx := range jobs {
 				resource := validResources[idx]
 
@@ -204,7 +199,7 @@ func decryptResourcesParallel(ctx context.Context, client *api.Client, resources
 					err:            err,
 				}
 			}
-		}()
+		})
 	}
 
 	// Send jobs
