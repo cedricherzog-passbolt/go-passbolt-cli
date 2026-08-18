@@ -16,8 +16,8 @@ import (
 // Regression guard mirroring the user lifecycle-field test.
 func TestResourceJSONOutput_BoolFieldsAlwaysEmitted(t *testing.T) {
 	out := ResourceJSONOutput{
-		ID:      ptr("r1"),
-		Name:    ptr("server"),
+		ID:      new("r1"),
+		Name:    new("server"),
 		Deleted: false,
 		Expired: false,
 	}
@@ -123,12 +123,12 @@ func TestPrintJSONResources_ColumnFilterRestrictsKeys(t *testing.T) {
 // the integration get-roundtrip scripts.
 func TestResourceGetJSONContract(t *testing.T) {
 	out := ResourceJSONOutput{
-		FolderParentID: ptr("f1"),
-		Name:           ptr("server"),
-		Username:       ptr("admin"),
-		URI:            ptr("https://example.com"),
-		Password:       ptr("secret"),
-		Description:    ptr("d"),
+		FolderParentID: new("f1"),
+		Name:           new("server"),
+		Username:       new("admin"),
+		URI:            new("https://example.com"),
+		Password:       new("secret"),
+		Description:    new("d"),
 	}
 	m := marshalToMap(t, out)
 
@@ -218,8 +218,6 @@ func assertKeySet(t *testing.T, m map[string]any, want map[string]bool) {
 		}
 	}
 }
-
-func ptr[T any](v T) *T { return &v }
 
 // captureStdout swaps os.Stdout for a pipe, runs fn, restores stdout, and
 // returns whatever fn wrote. Used to test functions that print directly.

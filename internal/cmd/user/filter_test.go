@@ -74,7 +74,7 @@ func TestUserColumns_Filter_LargeDataset(t *testing.T) {
 	const n = 10000
 	items := make([]api.User, n)
 	wantActive := 0
-	for i := 0; i < n; i++ {
+	for i := range n {
 		active := i%2 == 0
 		if active {
 			wantActive++
