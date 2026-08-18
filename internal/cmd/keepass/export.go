@@ -58,7 +58,7 @@ func KeepassExport(cmd *cobra.Command, args []string) error {
 	case "v3":
 		kdbxVersion = gokeepasslib.WithDatabaseKDBXVersion3()
 	case "v4":
-		kdbxVersion = gokeepasslib.WithDatabaseKDBXVersion4()
+		kdbxVersion = gokeepasslib.WithDatabaseKDBXVersion40()
 	default:
 		return fmt.Errorf("invalid kdbx-version %q: must be v3 or v4", kdbxVersionFlag)
 	}
