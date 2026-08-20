@@ -7,7 +7,7 @@ require (
 	github.com/ProtonMail/gopenpgp/v3 v3.4.1
 	github.com/google/cel-go v0.31.0
 	github.com/google/uuid v1.6.0
-	github.com/passbolt/go-passbolt v0.8.1
+	github.com/passbolt/go-passbolt v0.8.2
 	github.com/pterm/pterm v0.12.83
 	github.com/rogpeppe/go-internal v1.16.0
 	github.com/spf13/cobra v1.10.2
