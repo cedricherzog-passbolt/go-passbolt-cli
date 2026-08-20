@@ -145,8 +145,7 @@ func GetClient(ctx context.Context) (*api.Client, error) {
 				var raw *http.Response
 				raw, _, err = c.DoCustomRequestAndReturnRawResponseV5(ctx, "POST", "mfa/verify/totp.json", req, nil)
 				if err != nil {
-					var apiErr *api.APIError
-					if !errors.As(err, &apiErr) {
+					if _, ok := errors.AsType[*api.APIError](err); !ok {
 						return http.Cookie{}, fmt.Errorf("doing MFA Challenge Response: %w", err)
 					}
 					fmt.Println("TOTP Verification Failed")
@@ -191,8 +190,7 @@ func GetClient(ctx context.Context) (*api.Client, error) {
 // code so users get actionable guidance instead of a bare status. The original
 // error chain is preserved for errors.Is / errors.As.
 func ExplainAPIError(op string, err error) error {
-	var apiErr *api.APIError
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[*api.APIError](err); ok {
 		if hint := apiStatusHint(apiErr.StatusCode); hint != "" {
 			return fmt.Errorf("%s: %s: %w", op, hint, err)
 		}

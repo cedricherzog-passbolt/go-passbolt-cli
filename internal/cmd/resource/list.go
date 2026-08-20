@@ -138,7 +138,7 @@ func decryptResourcesParallel(ctx context.Context, client *api.Client, resources
 
 	// Start workers
 	var wg sync.WaitGroup
-	for w := 0; w < numWorkers; w++ {
+	for range numWorkers {
 		wg.Go(func() {
 			for idx := range jobs {
 				resource := validResources[idx]
