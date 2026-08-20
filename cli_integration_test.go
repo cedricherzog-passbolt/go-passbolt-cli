@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/passbolt/go-passbolt-cli/internal/cmd"
 	"github.com/passbolt/go-passbolt-cli/internal/testenv"
 	"github.com/rogpeppe/go-internal/testscript"
@@ -205,7 +205,7 @@ func cmdUUID(ts *testscript.TestScript, neg bool, args []string) {
 	if len(args) != 1 {
 		ts.Fatalf("usage: uuid <varname>")
 	}
-	ts.Setenv(args[0], uuid.NewString())
+	ts.Setenv(args[0], uuid.New().String())
 }
 
 // jsonPath resolves a path against parsed JSON.

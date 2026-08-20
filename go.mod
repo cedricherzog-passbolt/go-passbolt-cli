@@ -6,7 +6,6 @@ require (
 	al.essio.dev/pkg/shellescape v1.6.0
 	github.com/ProtonMail/gopenpgp/v3 v3.4.1
 	github.com/google/cel-go v0.31.0
-	github.com/google/uuid v1.6.0
 	github.com/passbolt/go-passbolt v0.8.2
 	github.com/pterm/pterm v0.12.83
 	github.com/rogpeppe/go-internal v1.16.0
@@ -50,6 +49,7 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gookit/color v1.6.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
