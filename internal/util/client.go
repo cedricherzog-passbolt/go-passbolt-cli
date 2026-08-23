@@ -133,7 +133,7 @@ func GetClient(ctx context.Context) (*api.Client, error) {
 			}
 			for range 3 {
 				var code string
-				code, err := ReadPassword("Enter TOTP:")
+				code, err = ReadPassword("Enter TOTP:")
 				if err != nil {
 					fmt.Printf("\n")
 					return http.Cookie{}, fmt.Errorf("reading TOTP: %w", err)
