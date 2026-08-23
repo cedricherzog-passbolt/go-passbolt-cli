@@ -6,5 +6,5 @@ Releases before this file was introduced are documented in the [GitHub releases]
 
 ## [Unreleased]
 ### Maintenance
-- PB-54147: Bump go version to 1.27.0
+- PB-54147: Bump go version to 1.27.0 (the minimum supported Go version is now 1.27)
 - PB-54147: Use go 1.27 syntax
