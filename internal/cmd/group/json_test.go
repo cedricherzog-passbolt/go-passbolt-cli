@@ -14,7 +14,7 @@ import (
 // GroupJSONOutput's Deleted/UserCount must emit even when false/0 so that
 // --filter 'deleted == false' / 'user_count == 0' isn't blocked by omitempty.
 func TestGroupJSONOutput_ScalarFieldsAlwaysEmitted(t *testing.T) {
-	out := GroupJSONOutput{ID: ptr("g1"), Name: ptr("eng"), Deleted: false, UserCount: 0}
+	out := GroupJSONOutput{ID: new("g1"), Name: new("eng"), Deleted: false, UserCount: 0}
 	got, err := json.Marshal(out)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
@@ -92,9 +92,9 @@ func TestPrintJSONGroups_ColumnFilterRestrictsKeys(t *testing.T) {
 // covered by the integration get-roundtrip scripts.
 func TestGroupGetJSONContract(t *testing.T) {
 	out := GroupJSONOutput{
-		Name: ptr("eng"),
+		Name: new("eng"),
 		Users: []GroupUserMembershipJSONOutput{
-			{ID: ptr("u1"), Username: ptr("ada@x"), FirstName: ptr("Ada"), LastName: ptr("L"), IsGroupManager: ptr(true)},
+			{ID: new("u1"), Username: new("ada@x"), FirstName: new("Ada"), LastName: new("L"), IsGroupManager: new(true)},
 		},
 	}
 	m := marshalToMap(t, out)
@@ -181,8 +181,6 @@ func assertKeySet(t *testing.T, m map[string]any, want map[string]bool) {
 		}
 	}
 }
-
-func ptr[T any](v T) *T { return &v }
 
 // captureStdout swaps os.Stdout for a pipe, runs fn, restores stdout, and
 // returns whatever fn wrote.

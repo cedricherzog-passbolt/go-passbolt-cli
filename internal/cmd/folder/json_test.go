@@ -14,7 +14,7 @@ import (
 // FolderJSONOutput.Personal must emit even when false so that
 // --filter 'personal == false' isn't blocked by omitempty stripping.
 func TestFolderJSONOutput_PersonalAlwaysEmitted(t *testing.T) {
-	out := FolderJSONOutput{ID: ptr("f1"), Name: ptr("shared"), Personal: false}
+	out := FolderJSONOutput{ID: new("f1"), Name: new("shared"), Personal: false}
 	got, err := json.Marshal(out)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
@@ -99,7 +99,7 @@ func TestPrintJSONFolders_ColumnFilterRestrictsKeys(t *testing.T) {
 // appears, id/timestamps omitted. End-to-end output is covered by the
 // integration get-roundtrip scripts.
 func TestFolderGetJSONContract(t *testing.T) {
-	out := FolderJSONOutput{FolderParentID: ptr("p1"), Name: ptr("shared")}
+	out := FolderJSONOutput{FolderParentID: new("p1"), Name: new("shared")}
 	m := marshalToMap(t, out)
 	assertKeySet(t, m, map[string]bool{"folder_parent_id": true, "name": true, "personal": true})
 	for _, k := range []string{"id", "created_timestamp", "modified_timestamp"} {
@@ -170,8 +170,6 @@ func assertKeySet(t *testing.T, m map[string]any, want map[string]bool) {
 		}
 	}
 }
-
-func ptr[T any](v T) *T { return &v }
 
 // captureStdout swaps os.Stdout for a pipe, runs fn, restores stdout, and
 // returns whatever fn wrote.

@@ -72,13 +72,13 @@ func resolveEnvironmentSecrets(ctx context.Context, client *api.Client) ([]strin
 	envVars := os.Environ()
 
 	for i, envVar := range envVars {
-		splitIndex := strings.Index(envVar, "=")
-		if splitIndex == -1 {
+		before, after, ok := strings.Cut(envVar, "=")
+		if !ok {
 			continue
 		}
 
-		key := envVar[:splitIndex]
-		value := envVar[splitIndex+1:]
+		key := before
+		value := after
 
 		if !strings.HasPrefix(value, PassboltPrefix) {
 			continue

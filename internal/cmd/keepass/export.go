@@ -58,7 +58,7 @@ func KeepassExport(cmd *cobra.Command, args []string) error {
 	case "v3":
 		kdbxVersion = gokeepasslib.WithDatabaseKDBXVersion3()
 	case "v4":
-		kdbxVersion = gokeepasslib.WithDatabaseKDBXVersion4()
+		kdbxVersion = gokeepasslib.WithDatabaseKDBXVersion40()
 	default:
 		return fmt.Errorf("invalid kdbx-version %q: must be v3 or v4", kdbxVersionFlag)
 	}
@@ -202,44 +202,20 @@ func getKeepassEntry(client *api.Client, resource api.Resource, secret api.Secre
 
 	// Custom fields: each one becomes a protected KDBX field, matching what the
 	// Passbolt browser extension does in resourcesKdbxExporter.setCustomFields.
-	// Field name comes from metadata.custom_fields[].metadata_key, value from
-	// secret.custom_fields[].secret_value, correlated by id.
+	// helper.ParseCustomFields correlates the metadata and secret halves by id.
 	addCustomFields(&entry, metadata, secretFields)
 
 	return &entry, nil
 }
 
 func addCustomFields(entry *gokeepasslib.Entry, metadata, secretFields map[string]any) {
-	metaList, _ := metadata["custom_fields"].([]any)
-	if len(metaList) == 0 {
-		return
-	}
-	secretList, _ := secretFields["custom_fields"].([]any)
-	valueByID := make(map[string]string, len(secretList))
-	for _, item := range secretList {
-		m, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		id, _ := m["id"].(string)
-		val, _ := m["secret_value"].(string)
-		if id != "" {
-			valueByID[id] = val
-		}
-	}
-	for _, item := range metaList {
-		m, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		id, _ := m["id"].(string)
-		key, _ := m["metadata_key"].(string)
-		if key == "" {
+	for _, cf := range helper.ParseCustomFields(metadata, secretFields) {
+		if cf.Name == "" {
 			continue
 		}
 		entry.Values = append(entry.Values, gokeepasslib.ValueData{
-			Key:   key,
-			Value: gokeepasslib.V{Content: valueByID[id], Protected: w.NewBoolWrapper(true)},
+			Key:   cf.Name,
+			Value: gokeepasslib.V{Content: cf.Value, Protected: w.NewBoolWrapper(true)},
 		})
 	}
 }
