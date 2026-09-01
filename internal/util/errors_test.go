@@ -69,8 +69,7 @@ func TestExplainAPIError(t *testing.T) {
 	if !strings.Contains(err.Error(), "access denied") {
 		t.Errorf("expected friendly 403 hint, got %q", err.Error())
 	}
-	var got *api.APIError
-	if !errors.As(err, &got) {
+	if _, ok := errors.AsType[*api.APIError](err); !ok {
 		t.Error("ExplainAPIError must preserve the *api.APIError in the chain")
 	}
 
@@ -123,8 +122,7 @@ func TestExplainAPIError_NoHintStatus(t *testing.T) {
 	if !strings.HasPrefix(err.Error(), "doing thing: ") {
 		t.Errorf("expected op prefix, got %q", err.Error())
 	}
-	var got *api.APIError
-	if !errors.As(err, &got) {
+	if _, ok := errors.AsType[*api.APIError](err); !ok {
 		t.Error("ExplainAPIError must preserve the *api.APIError in the chain")
 	}
 	// The message should be just the op wrap around the API error, with no hint

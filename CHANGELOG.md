@@ -5,6 +5,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 Releases before this file was introduced are documented in the [GitHub releases](https://github.com/passbolt/go-passbolt-cli/releases).
 
 ## [Unreleased]
+### Maintenance
+- PB-54147: Bump go version to 1.27.0 (the minimum supported Go version is now 1.27)
+- PB-54147: Use go 1.27 syntax (the go-passbolt SDK :stays buildable on Go 1.26.7, so this only affects the CLI)
 
 ## [0.5.2] - 2026-08-28
 ### Fixed
