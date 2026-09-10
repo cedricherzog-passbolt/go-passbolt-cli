@@ -38,9 +38,8 @@ func TestMain(m *testing.M) {
 	})
 }
 
-// TestCLI boots an ephemeral Passbolt via testcontainers, registers ada and
-// admin users, materialises CLI TOML configs for each, and runs every .txtar
-// scenario under testdata/scripts against the live server. Requires Docker.
+// TestCLI runs every .txtar scenario under internal/testdata against an ephemeral Passbolt.
+// Requires Docker.
 func TestCLI(t *testing.T) {
 	ctx := t.Context()
 
