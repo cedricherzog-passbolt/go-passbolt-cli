@@ -5,6 +5,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 Releases before this file was introduced are documented in the [GitHub releases](https://github.com/passbolt/go-passbolt-cli/releases).
 
 ## [Unreleased]
+### Changed
+- PB-54610: `list resource` skips Resources whose type is unknown to this build or disabled on the server and reports how many were ignored, and `create`, `update`, `share` and `get` explain schema validation failures (Go SDK PB-54610)
 
 ## [0.5.2] - 2026-08-28
 ### Fixed
