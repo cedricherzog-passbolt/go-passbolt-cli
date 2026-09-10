@@ -19,7 +19,7 @@ import (
 )
 
 // advertisedResourceTypes returns the resource type slugs the live server offers.
-func advertisedResourceTypes(ctx context.Context, t *testing.T, pb *testenv.Passbolt, admin testenv.Credentials) []string {
+func advertisedResourceTypes(ctx context.Context, t testing.TB, pb *testenv.Passbolt, admin testenv.Credentials) []string {
 	t.Helper()
 
 	client, err := api.NewClient(nil, "go-passbolt-cli-tests", pb.BaseURL, admin.PrivateKey, admin.Password)
@@ -73,6 +73,12 @@ func TestMain(m *testing.M) {
 // TestCLI runs every .txtar scenario under internal/testdata against an ephemeral Passbolt.
 // Requires Docker.
 func TestCLI(t *testing.T) {
+	testscript.Run(t, cliParams(t))
+}
+
+// cliParams boots an ephemeral Passbolt, registers the users, sets the [env:...] markers and
+// returns the testscript parameters TestCLI and BenchmarkCLI share. Requires Docker.
+func cliParams(t testing.TB) testscript.Params {
 	ctx := t.Context()
 
 	pb, err := testenv.Start(ctx)
@@ -110,7 +116,7 @@ func TestCLI(t *testing.T) {
 		t.Setenv(resourceTypeEnv(slug), "1")
 	}
 
-	testscript.Run(t, testscript.Params{
+	return testscript.Params{
 		Dir: "internal/testdata",
 		Setup: func(env *testscript.Env) error {
 			adaCfg := filepath.Join(env.WorkDir, "ada.toml")
@@ -139,7 +145,7 @@ func TestCLI(t *testing.T) {
 			}
 			return false, fmt.Errorf("unknown condition %q", cond)
 		},
-	})
+	}
 }
 
 // tomlConfig renders a CLI TOML config for the given credentials. The PGP
