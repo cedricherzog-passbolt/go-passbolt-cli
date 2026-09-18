@@ -1,5 +1,16 @@
 //go:build integration
 
+// End-to-end CLI harness: runs the .txtar scenarios in internal/testdata
+// against an ephemeral Passbolt booted by internal/testenv.
+//
+// Three parts, in order:
+//   - the harness entry points and the ephemeral environment they boot;
+//   - the custom commands the scripts call (jsoneq, jsonget, jsonexists,
+//     uuid, defer);
+//   - the JSON path resolver backing the three json* commands.
+//
+// cliParams is shared with BenchmarkCLI in cli_bench_test.go.
+
 package main_test
 
 import (
@@ -18,36 +29,7 @@ import (
 	"github.com/rogpeppe/go-internal/testscript"
 )
 
-// advertisedResourceTypes returns the resource type slugs the live server offers.
-func advertisedResourceTypes(ctx context.Context, t testing.TB, pb *testenv.Passbolt, admin testenv.Credentials) []string {
-	t.Helper()
-
-	client, err := api.NewClient(nil, "go-passbolt-cli-tests", pb.BaseURL, admin.PrivateKey, admin.Password)
-	if err != nil {
-		t.Fatalf("new client for resource types: %v", err)
-	}
-	if err := client.Login(ctx); err != nil {
-		t.Fatalf("login for resource types: %v", err)
-	}
-	defer func() { _ = client.Logout(ctx) }()
-
-	types, err := client.GetResourceTypes(ctx, nil)
-	if err != nil {
-		t.Fatalf("getting resource types: %v", err)
-	}
-
-	slugs := make([]string, 0, len(types))
-	for _, rType := range types {
-		slugs = append(slugs, rType.Slug)
-	}
-	return slugs
-}
-
-// resourceTypeEnv maps a slug to the marker scripts gate on: v5-pin-code becomes
-// HAS_TYPE_V5_PIN_CODE, used as [env:HAS_TYPE_V5_PIN_CODE].
-func resourceTypeEnv(slug string) string {
-	return "HAS_TYPE_" + strings.ToUpper(strings.ReplaceAll(slug, "-", "_"))
-}
+// ---- Harness entry points ------------------------------------------------
 
 // TestMain wires the test binary so that any `passbolt`, `pb`, or `pba`
 // directive in a .txtar script re-execs this binary and dispatches to the
@@ -75,6 +57,8 @@ func TestMain(m *testing.M) {
 func TestCLI(t *testing.T) {
 	testscript.Run(t, cliParams(t))
 }
+
+// ---- Test environment ----------------------------------------------------
 
 // cliParams boots an ephemeral Passbolt, registers the users, sets the [env:...] markers and
 // returns the testscript parameters TestCLI and BenchmarkCLI share. Requires Docker.
@@ -148,6 +132,37 @@ func cliParams(t testing.TB) testscript.Params {
 	}
 }
 
+// advertisedResourceTypes returns the resource type slugs the live server offers.
+func advertisedResourceTypes(ctx context.Context, t testing.TB, pb *testenv.Passbolt, admin testenv.Credentials) []string {
+	t.Helper()
+
+	client, err := api.NewClient(nil, "go-passbolt-cli-tests", pb.BaseURL, admin.PrivateKey, admin.Password)
+	if err != nil {
+		t.Fatalf("new client for resource types: %v", err)
+	}
+	if err := client.Login(ctx); err != nil {
+		t.Fatalf("login for resource types: %v", err)
+	}
+	defer func() { _ = client.Logout(ctx) }()
+
+	types, err := client.GetResourceTypes(ctx, nil)
+	if err != nil {
+		t.Fatalf("getting resource types: %v", err)
+	}
+
+	slugs := make([]string, 0, len(types))
+	for _, rType := range types {
+		slugs = append(slugs, rType.Slug)
+	}
+	return slugs
+}
+
+// resourceTypeEnv maps a slug to the marker scripts gate on: v5-pin-code becomes
+// HAS_TYPE_V5_PIN_CODE, used as [env:HAS_TYPE_V5_PIN_CODE].
+func resourceTypeEnv(slug string) string {
+	return "HAS_TYPE_" + strings.ToUpper(strings.ReplaceAll(slug, "-", "_"))
+}
+
 // tomlConfig renders a CLI TOML config for the given credentials. The PGP
 // armored private key is a multi-line string, so we use TOML triple-quoted
 // literals; the password is short and safe for a bare key=value line.
@@ -159,6 +174,8 @@ userPrivateKey = '''
 '''
 `, serverAddress, c.Password, strings.TrimSpace(c.PrivateKey))
 }
+
+// ---- Script commands -----------------------------------------------------
 
 // jsoneq <file> <path> <expected>
 //
@@ -220,6 +237,17 @@ func cmdJSONExists(ts *testscript.TestScript, neg bool, args []string) {
 	}
 }
 
+// uuid <varname>: generate a fresh UUIDv4 into env var <varname>.
+func cmdUUID(ts *testscript.TestScript, neg bool, args []string) {
+	if neg {
+		ts.Fatalf("uuid does not support negation")
+	}
+	if len(args) != 1 {
+		ts.Fatalf("usage: uuid <varname>")
+	}
+	ts.Setenv(args[0], uuid.New().String())
+}
+
 // defer <cmd> [args...]
 //
 // Schedules <cmd> to run at end-of-script (LIFO order, mirroring Go's defer)
@@ -241,16 +269,7 @@ func cmdDefer(ts *testscript.TestScript, neg bool, args []string) {
 	})
 }
 
-// uuid <varname>: generate a fresh UUIDv4 into env var <varname>.
-func cmdUUID(ts *testscript.TestScript, neg bool, args []string) {
-	if neg {
-		ts.Fatalf("uuid does not support negation")
-	}
-	if len(args) != 1 {
-		ts.Fatalf("usage: uuid <varname>")
-	}
-	ts.Setenv(args[0], uuid.New().String())
-}
+// ---- JSON path -----------------------------------------------------------
 
 // jsonPath resolves a path against parsed JSON.
 //
