@@ -5,6 +5,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 Releases before this file was introduced are documented in the [GitHub releases](https://github.com/passbolt/go-passbolt-cli/releases).
 
 ## [Unreleased]
+### Security
+- PB-56379: Bump Go version to 1.27.4 (security fixes in cgo, the go command, the compiler, the linker and net/http)
 
 ## [0.5.3] - 2026-11-05
 ### Added
