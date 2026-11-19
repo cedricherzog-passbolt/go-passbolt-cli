@@ -55,8 +55,12 @@ func FolderGet(cmd *cobra.Command, args []string) error {
 		}
 		if jsonOutput {
 			return util.PrintJSON(FolderJSONOutput{
-				FolderParentID: &folder.FolderParentID,
-				Name:           &folder.Name,
+				ID:                &folder.ID,
+				FolderParentID:    &folder.FolderParentID,
+				Name:              &folder.Name,
+				CreatedTimestamp:  &folder.Created.Time,
+				ModifiedTimestamp: &folder.Modified.Time,
+				Personal:          folder.Personal,
 			})
 		}
 		util.Printf("FolderParentID: %v\n", util.Sanitize(folder.FolderParentID))

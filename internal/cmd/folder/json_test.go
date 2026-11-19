@@ -92,22 +92,6 @@ func TestPrintJSONFolders_ColumnFilterRestrictsKeys(t *testing.T) {
 	}
 }
 
-// Pins the JSON struct contract for the get path (FolderGet builds this same
-// subset inline). NOTE: tests the struct's omitempty/tag behavior, not the
-// command — folder_parent_id + name present, personal (non-omitempty) still
-// appears, id/timestamps omitted. End-to-end output is covered by the
-// integration get-roundtrip scripts.
-func TestFolderGetJSONContract(t *testing.T) {
-	out := FolderJSONOutput{FolderParentID: new("p1"), Name: new("shared")}
-	m := marshalToMap(t, out)
-	assertKeySet(t, m, map[string]bool{"folder_parent_id": true, "name": true, "personal": true})
-	for _, k := range []string{"id", "created_timestamp", "modified_timestamp"} {
-		if _, ok := m[k]; ok {
-			t.Errorf("key %q should be omitted in get JSON", k)
-		}
-	}
-}
-
 func TestPrintJSONFolders_EscapesSpecialChars(t *testing.T) {
 	weird := "a\"b\\c\nd<eé"
 	folders := []api.Folder{{ID: "f1", Name: weird, Created: &api.Time{}, Modified: &api.Time{}}}
@@ -140,33 +124,6 @@ func TestPrintJSONFolders_EmptyListIsArray(t *testing.T) {
 	}
 	if got == nil {
 		t.Error("empty list should decode to an empty array, not null")
-	}
-}
-
-func marshalToMap(t *testing.T, v any) map[string]any {
-	t.Helper()
-	b, err := json.Marshal(v)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	return m
-}
-
-func assertKeySet(t *testing.T, m map[string]any, want map[string]bool) {
-	t.Helper()
-	for k := range m {
-		if !want[k] {
-			t.Errorf("unexpected key %q in JSON output", k)
-		}
-	}
-	for k := range want {
-		if _, ok := m[k]; !ok {
-			t.Errorf("missing key %q in JSON output", k)
-		}
 	}
 }
 
