@@ -9,6 +9,8 @@ defer pb delete folder --id $ID
 pb get folder --id $ID --json
 cp stdout get.json
 jsoneq get.json name test-folder-rt
+jsoneq get.json id $ID
+jsoneq get.json personal true
 
 pb update folder --id $ID --name test-folder-rt-updated
 
