@@ -1,27 +1,50 @@
 ---
-name: Bug report
-about: Create a report to help us improve
-title: ''
+name: Report a bug
+about: Report a bug in the Passbolt CLI.
+title: ""
 labels: bug
-assignees: speatzle
-
+assignees: ""
 ---
 
-**Describe the bug:**
-A clear and concise description of what the bug is.
+<!--
+PLEASE READ
 
-**To Reproduce:**
-A clear and concise description of how to reproduce the bug.
+This tracker is only for go-passbolt-cli bugs. For anything else:
 
-**Output when using --debug (you should censor this):**
+- Security issues: https://www.passbolt.com/docs/contribute/security/vulnerability/
+- Feature requests: https://community.passbolt.com/c/backlog
+- Installation issues: https://community.passbolt.com/c/installation-issues
+- General questions: https://community.passbolt.com/c/uncategorized
 
-**Passbolt Server Version  (please complete the following information):**
- - Edition: [e.g. Cloud / PRO / Community]
- - Version [e.g. 3.5.0]
+If you are certain this is a CLI bug, please fill in the format below.
+-->
 
-**go-passbolt-cli Version (please complete the following information):**
- - OS: [e.g. linux]
- - Version [e.g. v0.1.7]
+* [ ] I searched the [community forum](https://community.passbolt.com/) for this problem
+* [ ] I searched the [existing issues](https://github.com/passbolt/go-passbolt-cli/issues?q=is%3Aissue), open and closed
 
-**Additional context**
-Add any other context about the problem here.
+* CLI version: <!-- output of `passbolt --version` -->
+* Operating system: <!-- e.g. Ubuntu 26.04, macOS 26, Windows 11 -->
+* API edition & version: <!-- e.g. CE 5.12.0, or Passbolt Cloud -->
+
+### What you did?
+
+<!-- Explain what you did, preferably with the exact command you ran. -->
+
+### What happened?
+
+<!-- Explain what actually happened. -->
+
+### What you expected to happen?
+
+<!-- Explain what you expected instead. -->
+
+### Output with --debug
+
+<!-- Run the command again with --debug and paste the output. Censor it first: it can contain your server address, resource IDs and tokens. -->
+
+```
+```
+
+### Would you like to submit a fix?
+
+<!-- If so, please wait for a maintainer to agree on this issue before opening a pull request. See CONTRIBUTING.md. -->

@@ -171,3 +171,7 @@ This would resolve the `passbolt://` reference in `GITHUB_TOKEN` to its actual s
 
 Usage for all subcommands is [here](https://github.com/passbolt/go-passbolt-cli/wiki/passbolt).
 And is also available via `man passbolt`
+
+# Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first: open an issue and wait for a maintainer to agree before opening a pull request.
